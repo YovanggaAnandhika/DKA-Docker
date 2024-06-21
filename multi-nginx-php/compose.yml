@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  dka-nginx:
+    image: nginx:latest
+    container_name: nginx-container
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./public:/var/www/html
+    depends_on:
+      - dka-php
+
+  dka-php:
+    image: php:8.2-fpm
+    container_name: php8.2-container
+    volumes:
+      - ./public:/var/www/html
+
+volumes:
+  nginx-config:
+    driver: local
+  app-code:
+    driver: local
