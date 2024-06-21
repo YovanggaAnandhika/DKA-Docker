@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   dka-mongo1:
-    image: mongo:6
+    image: mongo:7
     container_name: dka-mongodb-cluster0
     hostname: dka-mongo1
     restart: always
@@ -16,12 +14,20 @@ services:
       - mongodb1_data:/data/db
       - ./mongo-keyfile:/data/configdb/keyfile
       - ./init-replica.sh:/docker-entrypoint-initdb.d/init-replica.sh
-    command: ["mongod", "--replSet", "dkaReplicaSet", "--keyFile", "/data/configdb/keyfile", "--bind_ip_all"]
+    command: [
+      "mongod",
+      "--replSet", "dkaReplicaSet",
+      "--keyFile", "/data/configdb/keyfile",
+      "--port",
+      "27017",
+      "--bind_ip_all"
+    ]
     networks:
-      - mongo-net
+      mongo-net:
+        ipv4_address: 103.113.1.2
 
   dka-mongo2:
-    image: mongo:6
+    image: mongo:7
     container_name: dka-mongodb-cluster1
     hostname: dka-mongo2
     restart: always
@@ -32,12 +38,22 @@ services:
     volumes:
       - mongodb2_data:/data/db
       - ./mongo-keyfile:/data/configdb/keyfile
-    command: ["mongod", "--replSet", "dkaReplicaSet", "--keyFile", "/data/configdb/keyfile", "--bind_ip_all"]
+    ports:
+      - "27018:27018"
+    command: [
+      "mongod",
+      "--replSet", "dkaReplicaSet",
+      "--keyFile", "/data/configdb/keyfile",
+      "--port",
+      "27018",
+      "--bind_ip_all"
+    ]
     networks:
-      - mongo-net
+      mongo-net:
+        ipv4_address: 103.113.1.3
 
   dka-mongo3:
-    image: mongo:6
+    image: mongo:7
     container_name: dka-mongodb-cluster2
     hostname: dka-mongo3
     restart: always
@@ -48,13 +64,26 @@ services:
     volumes:
       - mongodb3_data:/data/db
       - ./mongo-keyfile:/data/configdb/keyfile
-    command: ["mongod", "--replSet", "dkaReplicaSet", "--keyFile", "/data/configdb/keyfile", "--bind_ip_all"]
+    ports:
+      - "27019:27019"
     networks:
-      - mongo-net
+      mongo-net:
+        ipv4_address: 103.113.1.4
+    command: [
+      "mongod",
+      "--replSet", "dkaReplicaSet",
+      "--keyFile", "/data/configdb/keyfile",
+      "--port",
+      "27019",
+      "--bind_ip_all"
+    ]
 
 networks:
   mongo-net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 103.113.1.0/24
 
 volumes:
   mongodb1_data:
