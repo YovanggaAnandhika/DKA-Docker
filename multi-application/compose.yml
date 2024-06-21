@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  dka-mongo1:
+    image: mongo:6
+    container_name: dka-mongodb-cluster0
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb1_data:/data/db
+    networks:
+      - mongo-net
+
+  dka-mongo2:
+    image: mongo:6
+    container_name: dka-mongodb-cluster1
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+    volumes:
+      - mongodb2_data:/data/db
+    networks:
+      - mongo-net
+
+  dka-mongo3:
+    image: mongo:6
+    container_name: dka-mongodb-cluster2
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+    volumes:
+      - mongodb3_data:/data/db
+    networks:
+      - mongo-net
+
+networks:
+  mongo-net:
+    driver: bridge
+
+volumes:
+  mongodb1_data:
+    driver: local
+  mongodb2_data:
+    driver: local
+  mongodb3_data:
+    driver: local
