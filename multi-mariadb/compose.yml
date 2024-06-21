@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  dka-mariadb1:
+    image: mariadb:latest
+    hostname: dka-mariadb1
+    environment:
+      MYSQL_ROOT_PASSWORD: Cyberhack2010
+      CLUSTER_NAME: "mariadb_cluster"
+      NODE_ADDRESS: "dka-mariadb1"
+      CLUSTER_JOIN: "dka-mariadb1,dka-mariadb2,dka-mariadb3"
+    volumes:
+      - db_mariadb_data1:/var/lib/mysql
+    networks:
+      mariadb_cluster:
+        ipv4_address: 172.28.1.1
+
+  dka-mariadb2:
+    image: mariadb:latest
+    hostname: dka-mariadb2
+    environment:
+      MYSQL_ROOT_PASSWORD: Cyberhack2010
+      CLUSTER_NAME: "mariadb_cluster"
+      NODE_ADDRESS: "dka-mariadb2"
+      CLUSTER_JOIN: "dka-mariadb1,dka-mariadb2,dka-mariadb3"
+    volumes:
+      - db_mariadb_data2:/var/lib/mysql
+    networks:
+      mariadb_cluster:
+        ipv4_address: 172.28.1.2
+
+  dka-mariadb3:
+    image: mariadb:latest
+    hostname: dka-mariadb3
+    environment:
+      MYSQL_ROOT_PASSWORD: Cyberhack2010
+      CLUSTER_NAME: "mariadb_cluster"
+      NODE_ADDRESS: "dka-mariadb3"
+      CLUSTER_JOIN: "dka-mariadb1,dka-mariadb2,dka-mariadb3"
+    volumes:
+      - db_mariadb_data3:/var/lib/mysql
+    networks:
+      mariadb_cluster:
+        ipv4_address: 172.28.1.3
+
+volumes:
+  db_mariadb_data1:
+    driver: local
+  db_mariadb_data2:
+    driver: local
+  db_mariadb_data3:
+    driver: local
+
+networks:
+  mariadb_cluster:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
