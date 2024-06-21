@@ -4,38 +4,51 @@ services:
   dka-mongo1:
     image: mongo:6
     container_name: dka-mongodb-cluster0
+    hostname: dka-mongo1
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: developer
       MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+      MONGO_REPLICA_SET_NAME: dkaReplicaSet
     ports:
       - "27017:27017"
     volumes:
       - mongodb1_data:/data/db
+      - ./mongo-keyfile:/data/configdb/keyfile
+      - ./init-replica.sh:/docker-entrypoint-initdb.d/init-replica.sh
+    command: ["mongod", "--replSet", "dkaReplicaSet", "--keyFile", "/data/configdb/keyfile", "--bind_ip_all"]
     networks:
       - mongo-net
 
   dka-mongo2:
     image: mongo:6
     container_name: dka-mongodb-cluster1
+    hostname: dka-mongo2
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: developer
       MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+      MONGO_REPLICA_SET_NAME: dkaReplicaSet
     volumes:
       - mongodb2_data:/data/db
+      - ./mongo-keyfile:/data/configdb/keyfile
+    command: ["mongod", "--replSet", "dkaReplicaSet", "--keyFile", "/data/configdb/keyfile", "--bind_ip_all"]
     networks:
       - mongo-net
 
   dka-mongo3:
     image: mongo:6
     container_name: dka-mongodb-cluster2
+    hostname: dka-mongo3
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: developer
       MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+      MONGO_REPLICA_SET_NAME: dkaReplicaSet
     volumes:
       - mongodb3_data:/data/db
+      - ./mongo-keyfile:/data/configdb/keyfile
+    command: ["mongod", "--replSet", "dkaReplicaSet", "--keyFile", "/data/configdb/keyfile", "--bind_ip_all"]
     networks:
       - mongo-net
 
