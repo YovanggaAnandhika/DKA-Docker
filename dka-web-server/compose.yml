@@ -12,6 +12,7 @@ services:
       - ./www:/var/www/html
     depends_on:
       - dka-php
+      - dka-node
       - dka-mariadb
       - dka-mongodb
       - dka-postgresql
@@ -28,6 +29,21 @@ services:
       dka-web-network:
         ipv4_address: 102.113.0.3
 
+  dka-node:
+    image: node:21-alpine
+    container_name: dka-web-node21-container
+    volumes:
+      - ./app:/app
+    networks:
+      dka-web-network:
+        ipv4_address: 102.113.0.4
+    ports:
+      - "3000:3000"
+    depends_on:
+      - dka-mongodb
+      - dka-mariadb
+      - dka-postgresql
+
   dka-mariadb:
     image: mariadb:latest
     container_name: dka-web-mariadb-container
@@ -39,7 +55,7 @@ services:
       - mariadb-data:/var/lib/mysql
     networks:
       dka-web-network:
-        ipv4_address: 102.113.0.4
+        ipv4_address: 102.113.0.5
 
   dka-mongodb:
     image: mongo:latest
@@ -53,7 +69,7 @@ services:
       - mongodb-data:/data/db
     networks:
       dka-web-network:
-        ipv4_address: 102.113.0.5
+        ipv4_address: 102.113.0.6
 
   dka-postgresql:
     image: postgres:latest
@@ -68,7 +84,7 @@ services:
       - postgresql-data:/var/lib/postgresql/data
     networks:
       dka-web-network:
-        ipv4_address: 102.113.0.6
+        ipv4_address: 102.113.0.7
 
 volumes:
   nginx-config:
