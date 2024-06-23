@@ -4,6 +4,7 @@ services:
   dka-nginx:
     image: nginx:latest
     container_name: dka-web-nginx-container
+    restart: always
     ports:
       - "80:80"
       - "443:443"
@@ -23,6 +24,7 @@ services:
   dka-php:
     image: php:8.2-fpm
     container_name: dka-web-php8.2-container
+    restart: always
     volumes:
       - ./www:/var/www/html
     networks:
@@ -34,6 +36,7 @@ services:
     container_name: dka-web-node-container
     user: node
     working_dir: /home/node/app
+    restart: unless-stopped
     volumes:
       - ./app:/home/node/app
     networks:
@@ -50,6 +53,7 @@ services:
   dka-mariadb:
     image: mariadb:latest
     container_name: dka-web-mariadb-container
+    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: Cyberhack2010
     ports:
@@ -63,6 +67,7 @@ services:
   dka-mongodb:
     image: mongo:latest
     container_name: dka-web-mongodb-container
+    restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: developer
       MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
@@ -77,6 +82,7 @@ services:
   dka-postgresql:
     image: postgres:latest
     container_name: dka-web-postgresql-container
+    restart: always
     environment:
       #POSTGRES_DB: mydb
       POSTGRES_USER: developer
