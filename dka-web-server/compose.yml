@@ -4,32 +4,47 @@ services:
     image: nginx:latest
     container_name: dev-nginx
     restart: always
+    links:
+      - dka-mariadb
+      - dka-mongodb
+      - dka-postgresql
+      - dka-redis
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./config/nginx/conf.d:/etc/nginx/conf.d
       - ./www:/var/www/html
+      - ./phpMyAdmin:/var/www/phpMyAdmin
     depends_on:
       - dka-php
-      - dka-node
       - dka-mariadb
-      - dka-mongodb
+      - dka-node
       - dka-postgresql
       - dka-redis
+      - dka-mongodb
     networks:
       dka-web-network:
         ipv4_address: 102.113.0.2
 
   dka-php:
-    image: php:8.2-fpm
+    build:
+      dockerfile: context/dockerFile
     container_name: dev-php8.2
     restart: always
+    links:
+      - dka-mariadb
+      - dka-mongodb
+      - dka-postgresql
+      - dka-redis
     volumes:
       - ./www:/var/www/html
+      - ./phpMyAdmin:/var/www/phpMyAdmin
     networks:
       dka-web-network:
         ipv4_address: 102.113.0.3
+    depends_on:
+      - dka-mariadb
 
   dka-node:
     image: node:latest
@@ -39,6 +54,11 @@ services:
     restart: unless-stopped
     volumes:
       - ./app:/home/node/app
+    links:
+      - dka-mariadb
+      - dka-mongodb
+      - dka-postgresql
+      - dka-redis
     networks:
       dka-web-network:
         ipv4_address: 102.113.0.4
