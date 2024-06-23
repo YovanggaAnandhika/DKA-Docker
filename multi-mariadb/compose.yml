@@ -1,5 +1,4 @@
-version: '3.8'
-
+name: dka-multi-mariadb-cluster
 services:
   dka-mariadb1:
     build:

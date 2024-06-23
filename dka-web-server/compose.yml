@@ -1,0 +1,88 @@
+name : dka-web-server
+
+services:
+  dka-nginx:
+    image: nginx:latest
+    container_name: dka-web-nginx-container
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx/conf.d:/etc/nginx/conf.d
+      - ./www:/var/www/html
+    depends_on:
+      - dka-php
+      - dka-mariadb
+      - dka-mongodb
+      - dka-postgresql
+    networks:
+      dka-web-network:
+        ipv4_address: 102.113.0.2
+
+  dka-php:
+    image: php:8.2-fpm
+    container_name: dka-web-php8.2-container
+    volumes:
+      - ./www:/var/www/html
+    networks:
+      dka-web-network:
+        ipv4_address: 102.113.0.3
+
+  dka-mariadb:
+    image: mariadb:latest
+    container_name: dka-web-mariadb-container
+    environment:
+      MYSQL_ROOT_PASSWORD: Cyberhack2010
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    networks:
+      dka-web-network:
+        ipv4_address: 102.113.0.4
+
+  dka-mongodb:
+    image: mongo:latest
+    container_name: dka-web-mongodb-container
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      dka-web-network:
+        ipv4_address: 102.113.0.5
+
+  dka-postgresql:
+    image: postgres:latest
+    container_name: dka-web-postgresql-container
+    environment:
+      #POSTGRES_DB: mydb
+      POSTGRES_USER: developer
+      POSTGRES_PASSWORD: Cyberhack2010
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+    networks:
+      dka-web-network:
+        ipv4_address: 102.113.0.6
+
+volumes:
+  nginx-config:
+    driver: local
+  mariadb-data:
+    driver: local
+  mongodb-data:
+    driver: local
+  postgresql-data:
+    driver: local
+
+networks:
+  dka-web-network :
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 102.113.0.0/24
