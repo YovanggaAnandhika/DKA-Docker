@@ -2,7 +2,8 @@ version: '3.8'
 
 services:
   dka-mariadb1:
-    image: mariadb:latest
+    build:
+      dockerfile: Dockerfile
     hostname: dka-mariadb1
     environment:
       MYSQL_ROOT_PASSWORD: Cyberhack2010
@@ -16,7 +17,8 @@ services:
         ipv4_address: 172.28.1.1
 
   dka-mariadb2:
-    image: mariadb:latest
+    build:
+      dockerfile: Dockerfile
     hostname: dka-mariadb2
     environment:
       MYSQL_ROOT_PASSWORD: Cyberhack2010
@@ -30,7 +32,8 @@ services:
         ipv4_address: 172.28.1.2
 
   dka-mariadb3:
-    image: mariadb:latest
+    build:
+      dockerfile: Dockerfile
     hostname: dka-mariadb3
     environment:
       MYSQL_ROOT_PASSWORD: Cyberhack2010

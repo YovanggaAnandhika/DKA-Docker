@@ -1,6 +1,8 @@
+name: dka-multi-mongo-cluster
 services:
   dka-mongo1:
-    image: mongo:7
+    build:
+      dockerfile: Dockerfile
     container_name: dka-mongodb-cluster0
     hostname: dka-mongo1
     restart: always
@@ -12,8 +14,8 @@ services:
       - "27017:27017"
     volumes:
       - mongodb1_data:/data/db
-      - ./mongo-keyfile:/data/configdb/keyfile
-      - ./init-replica.sh:/docker-entrypoint-initdb.d/init-replica.sh
+      #- ./mongo-keyfile:/data/configdb/keyfile
+      #- ./init-replica.sh:/docker-entrypoint-initdb.d/init-replica.sh
     command: [
       "mongod",
       "--replSet", "dkaReplicaSet",
@@ -27,7 +29,8 @@ services:
         ipv4_address: 103.113.1.2
 
   dka-mongo2:
-    image: mongo:7
+    build:
+      dockerfile: Dockerfile
     container_name: dka-mongodb-cluster1
     hostname: dka-mongo2
     restart: always
@@ -37,7 +40,7 @@ services:
       MONGO_REPLICA_SET_NAME: dkaReplicaSet
     volumes:
       - mongodb2_data:/data/db
-      - ./mongo-keyfile:/data/configdb/keyfile
+      #- ./mongo-keyfile:/data/configdb/keyfile
     ports:
       - "27018:27018"
     command: [
@@ -53,7 +56,8 @@ services:
         ipv4_address: 103.113.1.3
 
   dka-mongo3:
-    image: mongo:7
+    build:
+      dockerfile: Dockerfile
     container_name: dka-mongodb-cluster2
     hostname: dka-mongo3
     restart: always
@@ -63,7 +67,7 @@ services:
       MONGO_REPLICA_SET_NAME: dkaReplicaSet
     volumes:
       - mongodb3_data:/data/db
-      - ./mongo-keyfile:/data/configdb/keyfile
+      #- ./mongo-keyfile:/data/configdb/keyfile
     ports:
       - "27019:27019"
     networks:
