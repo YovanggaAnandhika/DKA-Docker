@@ -1,9 +1,8 @@
-name : dka-web-server
-
+name: dev-dka-server
 services:
   dka-nginx:
     image: nginx:latest
-    container_name: dka-web-nginx-container
+    container_name: dev-nginx
     restart: always
     ports:
       - "80:80"
@@ -17,13 +16,14 @@ services:
       - dka-mariadb
       - dka-mongodb
       - dka-postgresql
+      - dka-redis
     networks:
       dka-web-network:
         ipv4_address: 102.113.0.2
 
   dka-php:
     image: php:8.2-fpm
-    container_name: dka-web-php8.2-container
+    container_name: dev-php8.2
     restart: always
     volumes:
       - ./www:/var/www/html
@@ -33,7 +33,7 @@ services:
 
   dka-node:
     image: node:latest
-    container_name: dka-web-node-container
+    container_name: dev-node
     user: node
     working_dir: /home/node/app
     restart: unless-stopped
@@ -52,7 +52,7 @@ services:
 
   dka-mariadb:
     image: mariadb:latest
-    container_name: dka-web-mariadb-container
+    container_name: dev-mariadb
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: Cyberhack2010
@@ -66,7 +66,7 @@ services:
 
   dka-mongodb:
     image: mongo:latest
-    container_name: dka-web-mongodb-container
+    container_name: dev-mongo
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: developer
@@ -81,7 +81,7 @@ services:
 
   dka-postgresql:
     image: postgres:latest
-    container_name: dka-web-postgresql-container
+    container_name: dev-postgresql
     restart: always
     environment:
       #POSTGRES_DB: mydb
@@ -95,6 +95,16 @@ services:
       dka-web-network:
         ipv4_address: 102.113.0.7
 
+  dka-redis:
+    image: redis:latest
+    container_name: dev-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      dka-web-network:
+        ipv4_address: 102.113.0.8
+
 volumes:
   nginx-config:
     driver: local
@@ -106,7 +116,7 @@ volumes:
     driver: local
 
 networks:
-  dka-web-network :
+  dka-web-network:
     driver: bridge
     ipam:
       config:
