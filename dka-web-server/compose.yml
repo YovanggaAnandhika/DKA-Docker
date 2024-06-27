@@ -1,4 +1,5 @@
 name: dev-dka-server
+
 services:
   dka-nginx:
     image: nginx:latest
@@ -15,7 +16,6 @@ services:
     volumes:
       - ./config/nginx/conf.d:/etc/nginx/conf.d
       - ./www:/var/www/html
-      - ./phpMyAdmin:/var/www/phpMyAdmin
     depends_on:
       - dka-php
       - dka-mariadb
@@ -31,6 +31,7 @@ services:
     build:
       dockerfile: context/dockerFile
     container_name: dev-php8.2
+    hostname: dka-server-php1
     restart: always
     links:
       - dka-mariadb
@@ -39,7 +40,6 @@ services:
       - dka-redis
     volumes:
       - ./www:/var/www/html
-      - ./phpMyAdmin:/var/www/phpMyAdmin
     networks:
       dka-web-network:
         ipv4_address: 102.113.0.3
@@ -73,6 +73,7 @@ services:
   dka-mariadb:
     image: mariadb:latest
     container_name: dev-mariadb
+    hostname: dka-mariadb
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: Cyberhack2010
@@ -83,6 +84,28 @@ services:
     networks:
       dka-web-network:
         ipv4_address: 102.113.0.5
+
+  dka-phpmyadmin :
+    image: phpmyadmin/phpmyadmin
+    container_name: dev-phpmyadmin
+    hostname: dka-phpmyadmin
+    restart: always
+    ports:
+      - "8081:80"
+    links:
+      - dka-mariadb
+    environment:
+      PMA_HOST: dka-mariadb
+      MYSQL_ROOT_PASSWORD: Cyberhack2010
+    depends_on:
+      - dka-mariadb
+    networks:
+      dka-web-network:
+        ipv4_address: 102.113.0.6
+    volumes:
+      - type: volume
+        source: phpmyadmin-data
+        target: /etc/phpmyadmin
 
   dka-mongodb:
     image: mongo:latest
@@ -97,7 +120,7 @@ services:
       - mongodb-data:/data/db
     networks:
       dka-web-network:
-        ipv4_address: 102.113.0.6
+        ipv4_address: 102.113.0.7
 
   dka-postgresql:
     image: postgres:latest
@@ -113,7 +136,7 @@ services:
       - postgresql-data:/var/lib/postgresql/data
     networks:
       dka-web-network:
-        ipv4_address: 102.113.0.7
+        ipv4_address: 102.113.0.8
 
   dka-redis:
     image: redis:latest
@@ -123,7 +146,7 @@ services:
       - "6379:6379"
     networks:
       dka-web-network:
-        ipv4_address: 102.113.0.8
+        ipv4_address: 102.113.0.9
 
 volumes:
   nginx-config:
@@ -133,6 +156,8 @@ volumes:
   mongodb-data:
     driver: local
   postgresql-data:
+    driver: local
+  phpmyadmin-data:
     driver: local
 
 networks:
