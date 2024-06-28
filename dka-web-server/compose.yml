@@ -45,6 +45,9 @@ services:
         ipv4_address: 102.113.0.3
     depends_on:
       - dka-mariadb
+      - dka-mongodb
+      - dka-postgresql
+      - dka-redis
 
   dka-node:
     image: node:latest
@@ -148,6 +151,27 @@ services:
       dka-web-network:
         ipv4_address: 102.113.0.9
 
+  dka-rethinkdb:
+   image: rethinkdb:latest
+   container_name: dev-rethinkdb
+   restart: always
+   ports:
+     - "8080:8080"
+     - "28015:28015"
+     - "29015:29015"
+   environment:
+     - RETHINKDB_ADMIN_USER=developer
+     - RETHINKDB_ADMIN_PASSWORD=Cyberhack2010
+   volumes:
+     - rethinkdb-data:/data
+     - type: volume
+       source: rethinkdb-data
+       target: /data
+     - type: bind
+       source: ./config/rethink/entrypoint.sh
+       target: /entrypoint.sh
+   entrypoint: ["/bin/bash", "/entrypoint.sh"]
+
 volumes:
   nginx-config:
     driver: local
@@ -159,6 +183,9 @@ volumes:
     driver: local
   phpmyadmin-data:
     driver: local
+  rethinkdb-data:
+    driver: local
+
 
 networks:
   dka-web-network:
