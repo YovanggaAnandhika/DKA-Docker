@@ -1,61 +1,83 @@
-name: dka-multi-mariadb-cluster
+name: dev-dka-server
+
 services:
-  dka-mariadb1:
-    build:
-      dockerfile: Dockerfile
-    hostname: dka-mariadb1
-    environment:
-      MYSQL_ROOT_PASSWORD: Cyberhack2010
-      CLUSTER_NAME: "mariadb_cluster"
-      NODE_ADDRESS: "dka-mariadb1"
-      CLUSTER_JOIN: "dka-mariadb1,dka-mariadb2,dka-mariadb3"
-    volumes:
-      - db_mariadb_data1:/var/lib/mysql
-    networks:
-      mariadb_cluster:
-        ipv4_address: 172.28.1.1
 
-  dka-mariadb2:
-    build:
-      dockerfile: Dockerfile
-    hostname: dka-mariadb2
+  dka-parking-mongodb:
+    image: mongo:4.4.18
+    container_name: dev-mongo
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: Cyberhack2010
-      CLUSTER_NAME: "mariadb_cluster"
-      NODE_ADDRESS: "dka-mariadb2"
-      CLUSTER_JOIN: "dka-mariadb1,dka-mariadb2,dka-mariadb3"
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+    ports:
+      - "27017:27017"
+    command: --storageEngine wiredTiger
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
     volumes:
-      - db_mariadb_data2:/var/lib/mysql
+      - mongodb-data:/data/db
     networks:
-      mariadb_cluster:
-        ipv4_address: 172.28.1.2
+      dka-parking-network:
+        ipv4_address: 102.111.0.4
 
-  dka-mariadb3:
-    build:
-      dockerfile: Dockerfile
-    hostname: dka-mariadb3
+
+  dka-mariadb:
+    image: mariadb:latest
+    container_name: dka-mariadb
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
     environment:
       MYSQL_ROOT_PASSWORD: Cyberhack2010
-      CLUSTER_NAME: "mariadb_cluster"
-      NODE_ADDRESS: "dka-mariadb3"
-      CLUSTER_JOIN: "dka-mariadb1,dka-mariadb2,dka-mariadb3"
     volumes:
-      - db_mariadb_data3:/var/lib/mysql
+      - mariadb-data:/var/lib/mysql
     networks:
-      mariadb_cluster:
-        ipv4_address: 172.28.1.3
+      dka-parking-network:
+  ipv4_address: 102.111.0.5
+
+  dka-phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: dka-phpmyadmin
+    deploy:
+      resources:
+        limits:
+          cpus: '0.30'
+          memory: 200M
+        reservations:
+          cpus: '0.15'
+          memory: 100M
+    environment:
+      PMA_HOST: dka-mariadb
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: @Cyberhack2010
+    ports:
+      - "64333:80"
+    networks:
+      dka-parking-network:
+        ipv4_address: 102.111.0.6
 
 volumes:
-  db_mariadb_data1:
+  mongodb-data:
+    name: dka-parking-mongodb
     driver: local
-  db_mariadb_data2:
+  mariadb-data:
+    name: dka-parking-mariadb
     driver: local
-  db_mariadb_data3:
-    driver: local
-
 networks:
-  mariadb_cluster:
+  dka-parking-network:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.28.0.0/16
+        - subnet: 102.111.0.0/24

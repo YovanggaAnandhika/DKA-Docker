@@ -1,0 +1,110 @@
+version: '3'
+
+services:
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy-manager
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        host_ip: 0.0.0.0
+      - target: 443
+        published: 443
+        protocol: tcp
+        host_ip: 0.0.0.0
+      - target: 81
+        published: 81
+        protocol: tcp
+        host_ip: 0.0.0.0
+    volumes:
+      - type: volume
+        source: dka-panel-nginx-data
+        target: /data
+      - type: volume
+        source: dka-panel-nginx-letsencrypt
+        target: /etc/letsencrypt
+    restart: always
+    networks:
+      - dka-web-server
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
+    environment:
+      PMA_HOST : dka-mariadb
+    restart: always
+    ports:
+      - target: 80
+        published: 8080
+        protocol: tcp
+        host_ip: 0.0.0.0
+    networks:
+      - dka-db-server
+
+  emqx:
+    image: emqx/emqx:latest
+    container_name: emqx
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
+    environment:
+      EMQX_NAME: emqx
+      EMQX_NODE__NAME: emqx@localhost
+      EMQX_NODE__COOKIE: emqx_secret_cookie
+    ports:
+      - target: 1883
+        published: 1883
+        protocol: tcp
+        host_ip: 0.0.0.0
+      - target: 8883
+        published: 8883
+        protocol: tcp
+        host_ip: 0.0.0.0
+      - target: 8083
+        published: 8083
+        protocol: tcp
+        host_ip: 0.0.0.0
+      - target: 8084
+        published: 8084
+        protocol: tcp
+        host_ip: 0.0.0.0
+    restart: always
+    networks:
+      - dka-db-server
+      - dka-web-server
+
+volumes:
+  dka-panel-nginx-data:
+    driver: local
+  dka-panel-nginx-letsencrypt:
+    driver: local
+
+networks:
+  dka-web-server:
+    external: true
+
+  dka-db-server:
+    external: true
+

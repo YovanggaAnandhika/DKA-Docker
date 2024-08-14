@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  dka-cluster-mongo-1:
+    container_name: dka-cluster-mongo-1
+    image: mongo:latest
+    command: [
+      "--replSet",
+      "rs0",
+      "--bind_ip_all",
+      "--port", "27017",
+      "--keyFile",
+      "/etc/mongodb/pki/keyfile"
+    ]
+    restart: always
+    ports:
+      - 27017:27017
+    networks:
+      mongo-cluster:
+        ipv4_address: 111.222.32.2
+    volumes:
+      - ./rs_keyfile:/etc/mongodb/pki/keyfile
+      - "mongo1_data:/data/db"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+
+  dka-cluster-mongo-2:
+    image: mongo:latest
+    container_name: dka-cluster-mongo-2
+    command: ["--replSet", "rs0" ,"--bind_ip_all", "--port", "27018","--keyFile", "/etc/mongodb/pki/keyfile"]
+    restart: always
+    ports:
+      - 27018:27018
+    networks:
+      mongo-cluster:
+        ipv4_address: 111.222.32.3
+    volumes:
+      - ./rs_keyfile:/etc/mongodb/pki/keyfile
+      - "mongo2_data:/data/db"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+
+
+  dka-cluster-mongo-3:
+    image: mongo:latest
+    container_name: dka-cluster-mongo-3
+    command: ["--replSet", "rs0" ,"--bind_ip_all", "--port", "27019","--keyFile", "/etc/mongodb/pki/keyfile"]
+    restart: always
+    ports:
+      - 27019:27019
+    networks:
+      mongo-cluster:
+        ipv4_address: 111.222.32.4
+    volumes:
+      - ./rs_keyfile:/etc/mongodb/pki/keyfile
+      - "mongo3_data:/data/db"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+
+volumes:
+  mongo1_data:
+  mongo2_data:
+  mongo3_data:
+
+networks:
+  mongo-cluster:
+    ipam:
+      config:
+        - subnet: 111.222.32.0/24

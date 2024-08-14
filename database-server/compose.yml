@@ -1,0 +1,147 @@
+name: db-dka-server
+services:
+
+  dka-mariadb:
+    image: mariadb:latest
+    container_name: dka-mariadb
+    hostname: dka-mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_USERNAME: developer
+      MYSQL_ROOT_PASSWORD: Cyberhack2010
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
+    #ports:
+    #  - target: 3306
+    #    published: 3306
+    #    host_ip: 0.0.0.0
+    #    protocol: tcp
+    volumes:
+      - type: volume
+        source: mariadb-data
+        target: /var/lib/mysql
+    networks:
+      - dka-db-server
+
+  dka-mongodb:
+    image: mongo:latest
+    container_name: dka-mongo
+    hostname: dka-mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
+    #ports:
+    #  - target: 27017
+    #    published: 27017
+    #    protocol: tcp
+    #    host_ip: 0.0.0.0
+    volumes:
+      - type: volume
+        source: mongodb-data
+        target: /data/db
+      - type: bind
+        source: ./.config/mongo/mongod.conf
+        target: /etc/mongod.conf
+        read_only: true
+    command: mongod --config /etc/mongod.conf
+    networks:
+      - dka-db-server
+
+  dka-postgresql:
+    image: postgres:latest
+    container_name: dka-postgresql
+    hostname: dka-postgresql
+    restart: always
+    environment:
+      POSTGRES_USER: developer
+      POSTGRES_PASSWORD: Cyberhack2010
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
+    #ports:
+    #  - target: 5432
+    #    published: 5432
+    #    protocol: tcp
+    #    host_ip: 0.0.0.0
+    volumes:
+      - type: volume
+        source: postgresql-data
+        target: /var/lib/postgresql/data
+    networks:
+      - dka-db-server
+
+  dka-redis:
+    image: redis:latest
+    container_name: dka-redis
+    hostname: dka-redis
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
+    #ports:
+    #  - target: 6379
+    #    published: 6379
+    #    protocol: tcp
+    #    host_ip: 0.0.0.0
+    networks:
+      - dka-db-server
+
+  dka-rethinkdb:
+    image: rethinkdb:latest
+    container_name: dka-rethinkdb
+    hostname: dka-rethinkdb
+    restart: always
+    #ports:
+    #  - target: 28015
+    #    published: 28015
+    #    protocol: tcp
+    #    host_ip: 0.0.0.0
+    #  - target: 29015
+    #    published: 29015
+    #    protocol: tcp
+    #    host_ip: 0.0.0.0
+    volumes:
+      - type: volume
+        source: rethinkdb-data
+        target: /data
+    networks:
+      - dka-db-server
+
+volumes:
+  mariadb-data:
+    driver: local
+  rethinkdb-data:
+    driver: local
+  mongodb-data:
+    driver: local
+  postgresql-data:
+    driver: local
+
+networks:
+  dka-db-server:
+    external: true

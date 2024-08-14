@@ -1,5 +1,6 @@
 name: dev-dka-server
 services:
+
   dka-nginx:
     image: nginx:latest
     container_name: dev-nginx
@@ -10,12 +11,19 @@ services:
       - dka-postgresql
       - dka-redis
     ports:
-      - "80:80"
-      - "443:443"
+      - target: 80
+        published: 80
+        host_ip: 0.0.0.0
+      - target: 443
+        published: 443
+        host_ip: 0.0.0.0
     volumes:
-      - ./config/nginx/conf.d:/etc/nginx/conf.d
-      - ./www:/var/www/html
-      - ./phpMyAdmin:/var/www/phpMyAdmin
+      - type: bind
+        source: ./config/nginx/conf.d
+        target: /etc/nginx/conf.d
+      - type: bind
+        source: ./www
+        target: /var/www/html
     depends_on:
       - dka-php
       - dka-mariadb
@@ -24,12 +32,11 @@ services:
       - dka-redis
       - dka-mongodb
     networks:
-      dka-web-network:
+      dka-development-server:
         ipv4_address: 102.113.0.2
 
   dka-php:
-    build:
-      dockerfile: context/dockerFile
+    image: php:8.2-fpm
     container_name: dev-php8.2
     restart: always
     links:
@@ -38,10 +45,11 @@ services:
       - dka-postgresql
       - dka-redis
     volumes:
-      - ./www:/var/www/html
-      - ./phpMyAdmin:/var/www/phpMyAdmin
+      - type: bind
+        source: ./www
+        target: /var/www/html
     networks:
-      dka-web-network:
+      dka-development-server:
         ipv4_address: 102.113.0.3
     depends_on:
       - dka-mariadb
@@ -49,22 +57,27 @@ services:
   dka-node:
     image: node:latest
     container_name: dev-node
-    user: node
+    #user: node
     working_dir: /home/node/app
     restart: unless-stopped
     volumes:
-      - ./app:/home/node/app
+      - type: bind
+        source: ./app
+        target: /home/node/app
     links:
       - dka-mariadb
       - dka-mongodb
       - dka-postgresql
       - dka-redis
     networks:
-      dka-web-network:
+      dka-development-server:
         ipv4_address: 102.113.0.4
     ports:
-      - "3000:3000"
-    command: "yarn run dev"
+      - target: 3000
+        published: 3000
+        host_ip: 0.0.0.0
+        protocol: tcp
+    command: sh -c "yarn install && yarn run dev"
     depends_on:
       - dka-mongodb
       - dka-mariadb
@@ -76,12 +89,25 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: Cyberhack2010
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
     ports:
-      - "3306:3306"
+      - target: 3306
+        published: 3306
+        host_ip: 0.0.0.0
+        protocol: tcp
     volumes:
-      - mariadb-data:/var/lib/mysql
+      - type: volume
+        source: mariadb-data
+        target: /var/lib/mysql
     networks:
-      dka-web-network:
+      dka-development-server:
         ipv4_address: 102.113.0.5
 
   dka-mongodb:
@@ -91,12 +117,25 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: developer
       MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
     ports:
-      - "27017:27017"
+      - target: 27017
+        published: 27017
+        protocol: tcp
+        host_ip: 0.0.0.0
     volumes:
-      - mongodb-data:/data/db
+      - type: volume
+        source: mongodb-data
+        target: /data/db
     networks:
-      dka-web-network:
+      dka-development-server:
         ipv4_address: 102.113.0.6
 
   dka-postgresql:
@@ -104,15 +143,27 @@ services:
     container_name: dev-postgresql
     restart: always
     environment:
-      #POSTGRES_DB: mydb
       POSTGRES_USER: developer
       POSTGRES_PASSWORD: Cyberhack2010
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
     ports:
-      - "5432:5432"
+      - target: 5432
+        published: 5432
+        protocol: tcp
+        host_ip: 0.0.0.0
     volumes:
-      - postgresql-data:/var/lib/postgresql/data
+      - type: volume
+        source: postgresql-data
+        target: /var/lib/postgresql/data
     networks:
-      dka-web-network:
+      dka-development-server:
         ipv4_address: 102.113.0.7
 
   dka-redis:
@@ -120,23 +171,128 @@ services:
     container_name: dev-redis
     restart: always
     ports:
-      - "6379:6379"
+      - target: 6379
+        published: 6379
+        protocol: tcp
+        host_ip: 0.0.0.0
     networks:
-      dka-web-network:
+      dka-development-server:
         ipv4_address: 102.113.0.8
 
+  dka-phpmyadmin:
+    image: phpmyadmin
+    container_name: dev-phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: dka-mariadb
+      MYSQL_ROOT_PASSWORD: Cyberhack2010
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
+    ports:
+      - target: 80
+        published: 8082
+        host_ip: 0.0.0.0
+        protocol: tcp
+    depends_on:
+      - dka-mariadb
+    networks:
+      dka-development-server:
+        ipv4_address: 102.113.0.9
+
+
+  dka-mongo-express:
+    image: mongo-express
+    container_name: dev-mongo-express
+    ports:
+      - target: 8081
+        published: 8081
+        protocol: tcp
+        host_ip: 0.0.0.0
+    environment:
+      ME_CONFIG_MONGODB_SERVER: dka-mongodb
+      ME_CONFIG_MONGODB_ADMINUSERNAME: developer
+      ME_CONFIG_MONGODB_ADMINPASSWORD: Cyberhack2010
+    links:
+      - dka-mongodb
+    depends_on:
+      - dka-mongodb
+    networks:
+      dka-development-server:
+        ipv4_address: 102.113.0.10
+
+  dka-chrony:
+    image: publicarray/chrony:latest
+    container_name: dev-chrony
+    restart: unless-stopped
+    ports:
+      - 123:123/udp
+    volumes:
+      - type: bind
+        source: ./config/chrony/chrony.conf
+        target: /etc/chrony.conf
+        read_only: true
+    cap_add:
+      - SYS_TIME
+    networks:
+      dka-development-server:
+        ipv4_address: 102.113.0.11
+
+  dka-emqx:
+    image: emqx/emqx:latest
+    container_name: dev-emqx
+    restart: always
+    ports:
+      # MQTT port
+      - target: 1883
+        published: 1883
+        host_ip: 0.0.0.0
+      # WebSocket/HTTP port
+      - target: 8080
+        published: 8080
+        host_ip: 0.0.0.0
+      # Dashboard port
+      - target: 18083
+        published: 18083
+        host_ip: 0.0.0.0
+      # Secure MQTT port
+      - target: 8883
+        published: 8883
+        host_ip: 0.0.0.0
+      - target: 8083
+        published: 8083
+        host_ip: 0.0.0.0
+    environment:
+      EMQX_NAME: emqx
+      EMQX_HOST: node1.emqx.io
+      EMQX_NODE__NAME: node@127.0.0.1
+      EMQX_NODE__COOKIE: Cyberhack2010
+      EMQX_LOADED_PLUGINS: "emqx_recon,emqx_retainer,emqx_dashboard,emqx_auth_clientid,emqx_auth_username,emqx_auth_http"
+    volumes:
+      - type: volume
+        source: emqx-data
+        target: /opt/emqx/data
+    networks:
+      dka-development-server:
+        ipv4_address: 102.113.0.12
+
 volumes:
-  nginx-config:
-    driver: local
   mariadb-data:
     driver: local
   mongodb-data:
     driver: local
   postgresql-data:
     driver: local
+  emqx-data:
+    driver: local
 
 networks:
-  dka-web-network:
+  dka-development-server:
     driver: bridge
     ipam:
       config:

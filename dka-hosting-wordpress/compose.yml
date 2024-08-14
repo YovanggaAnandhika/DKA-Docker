@@ -1,0 +1,65 @@
+name: dka-hosting-wordpress
+
+services:
+
+
+  kitasulsel:
+    image: wordpress:php8.3
+    container_name: kitasulsel
+    environment:
+      WORDPRESS_DB_HOST: dka-mariadb
+      WORDPRESS_DB_NAME: hosting-kitasulsel
+      WORDPRESS_DB_USER: root
+      WORDPRESS_DB_PASSWORD: Cyberhack2010
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
+    volumes:
+      - type: volume
+        source: kitasulsel-storage-data
+        target: /var/www/html
+    networks:
+      - dka-db-server
+      - dka-web-server
+
+  inetnews:
+    image: wordpress:php8.3
+    container_name: inetnews
+    environment:
+      WORDPRESS_DB_HOST: dka-mariadb
+      WORDPRESS_DB_NAME: hosting-inetnews
+      WORDPRESS_DB_USER: root
+      WORDPRESS_DB_PASSWORD: Cyberhack2010
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
+    volumes:
+      - type: volume
+        source: kitasulsel-storage-data
+        target: /var/www/html
+    networks:
+      - dka-db-server
+      - dka-web-server
+
+volumes:
+  kitasulsel-storage-data:
+    driver: local
+  inetnews-storage-data:
+    driver: local
+
+networks:
+  dka-db-server:
+    external: true
+
+  dka-web-server:
+    external: true
