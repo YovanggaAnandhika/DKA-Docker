@@ -1,0 +1,47 @@
+name: dka-main-server
+
+services:
+  mongo:
+    image: mongo:4.4.18
+    container_name: dka-mongo
+    hostname: dka-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
+    ports:
+      - target: 27017
+        published: 27017
+        protocol: tcp
+        host_ip: 0.0.0.0
+    volumes:
+      - type: volume
+        source: mongodb-data
+        target: /data/db
+      - type: bind
+        source: ./.config/mongo/mongod.conf
+        target: /etc/mongod.conf
+        read_only: true
+    command: mongod --config /etc/mongod.conf
+    networks:
+      dka-main-server:
+        ipv4_address: 100.124.0.2
+
+volumes:
+  mongodb-data:
+    driver: local
+
+networks:
+  dka-main-server:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 100.124.0.0/16

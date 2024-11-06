@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   nginx-proxy-manager:
     image: jc21/nginx-proxy-manager:latest
@@ -8,10 +6,10 @@ services:
       resources:
         limits:
           cpus: '0.50'
-          memory: 500M
+          memory: 150M
         reservations:
           cpus: '0.25'
-          memory: 200M
+          memory: 100M
     ports:
       - target: 80
         published: 80
@@ -19,10 +17,6 @@ services:
         host_ip: 0.0.0.0
       - target: 443
         published: 443
-        protocol: tcp
-        host_ip: 0.0.0.0
-      - target: 81
-        published: 81
         protocol: tcp
         host_ip: 0.0.0.0
     volumes:
@@ -35,70 +29,55 @@ services:
     restart: always
     networks:
       - dka-web-server
+      - dka-db-server
 
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin:latest
+    image: bitnami/phpmyadmin:latest
     container_name: phpmyadmin
+    hostname: dka-phpmyadmin
+    restart: always
+    environment:
+      PHPMYADMIN_ALLOW_ARBITRARY_SERVER: yes
     deploy:
       resources:
         limits:
           cpus: '0.50'
-          memory: 500M
+          memory: 150M
         reservations:
           cpus: '0.25'
-          memory: 200M
-    environment:
-      PMA_HOST : dka-mariadb
-    restart: always
-    ports:
-      - target: 80
-        published: 8080
-        protocol: tcp
-        host_ip: 0.0.0.0
+          memory: 50M
     networks:
       - dka-db-server
 
-  emqx:
-    image: emqx/emqx:latest
-    container_name: emqx
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    hostname: dka-portainer
+    restart: always
     deploy:
       resources:
         limits:
           cpus: '0.50'
-          memory: 500M
+          memory: 150M
         reservations:
           cpus: '0.25'
-          memory: 200M
-    environment:
-      EMQX_NAME: emqx
-      EMQX_NODE__NAME: emqx@localhost
-      EMQX_NODE__COOKIE: emqx_secret_cookie
-    ports:
-      - target: 1883
-        published: 1883
-        protocol: tcp
-        host_ip: 0.0.0.0
-      - target: 8883
-        published: 8883
-        protocol: tcp
-        host_ip: 0.0.0.0
-      - target: 8083
-        published: 8083
-        protocol: tcp
-        host_ip: 0.0.0.0
-      - target: 8084
-        published: 8084
-        protocol: tcp
-        host_ip: 0.0.0.0
-    restart: always
+          memory: 100M
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: volume
+        source: dka-portainer-data
+        target: /data
     networks:
-      - dka-db-server
       - dka-web-server
 
 volumes:
   dka-panel-nginx-data:
     driver: local
   dka-panel-nginx-letsencrypt:
+    driver: local
+  dka-portainer-data:
     driver: local
 
 networks:
@@ -107,4 +86,3 @@ networks:
 
   dka-db-server:
     external: true
-

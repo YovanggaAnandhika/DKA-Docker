@@ -1,41 +1,37 @@
+name: dka-hosting-tolibersatu
+
 services:
-  kitasulsel-app:
-    image: wordpress:php8.3
-    container_name: kitasulsel-app
+  tolibersatu-app:
+    image: wordpress:php8.2
+    container_name: tolibersatu-app
     environment:
-      WORDPRESS_DB_HOST: kitasulsel-mariadb
-      WORDPRESS_DB_NAME: kitasulsel
+      WORDPRESS_DB_HOST: tolibersatu-mariadb
+      WORDPRESS_DB_NAME: tolibersatu
       WORDPRESS_DB_USER: developer
       WORDPRESS_DB_PASSWORD: Cyberhack2010
-    depends_on:
-      - kitasulsel-mariadb
     restart: always
-    ports:
-      - target: 80
-        published: 4567
-        protocol: tcp
-        host_ip: 0.0.0.0
+    depends_on:
+      - tolibersatu-mariadb
     deploy:
       resources:
         limits:
-          cpus: '0.90'
-          memory: 800M
-        reservations:
           cpus: '0.50'
-          memory: 300M
+          memory: 500M
+        reservations:
+          cpus: '0.25'
+          memory: 200M
     volumes:
       - type: bind
         source: .
         target: /var/www/html
     networks:
       - dka-web-server
-      - kitasulsel-network
+      - tolibersatu-network
 
-
-  kitasulsel-mariadb:
+  tolibersatu-mariadb:
     image: mariadb:latest
-    container_name: kitasulsel-mariadb
-    hostname: kitasulsel-mariadb
+    container_name: tolibersatu-mariadb
+    hostname: tolibersatu-mariadb
     restart: always
     environment:
       MYSQL_ROOT_USERNAME: developer
@@ -50,21 +46,21 @@ services:
           memory: 200M
     volumes:
       - type: bind
-        source: ./sys_kitasulsel.sql
-        target: /backup/sys_kitasulsel.sql
+        source: ./sys_tolibersatu.sql
+        target: /backup/sys_tolibersatu.sql
       - type: volume
-        source: kitasulsel-db-data
+        source: tolibersatu-db-data
         target: /var/lib/mysql
     networks:
-      - kitasulsel-network
+      - tolibersatu-network
       - dka-db-server
 
 volumes:
-  kitasulsel-db-data:
+  tolibersatu-db-data:
     driver: local
 
 networks:
-  kitasulsel-network:
+  tolibersatu-network:
     driver: bridge
 
   dka-web-server:

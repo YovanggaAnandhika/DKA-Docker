@@ -7,20 +7,16 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: Cyberhack2010
     ports:
-      - "3306:3306"
+      - target: 3306
+        published: 3306
+        protocol: tcp
+        host_ip: 0.0.0.0
+    restart: always
     volumes:
-      - mariadb_data:/var/lib/mysql
-
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    container_name: phpmyadmin
-    ports:
-      - "8080:80"
-    depends_on:
-      - mariadb
-    environment:
-      PMA_HOST: mariadb
-      PMA_PORT: 3306
+      - type: volume
+        source: mariadb_data
+        target: /var/lib/mysql
 
 volumes:
   mariadb_data:
+    driver: local

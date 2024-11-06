@@ -1,0 +1,30 @@
+services:
+  glances:
+    image: nicolargo/glances:latest-full
+    container_name: glances
+    hostname: dka-glances
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 150M
+        reservations:
+          cpus: '0.25'
+          memory: 100M
+    environment:
+      # Enable web UI
+      GLANCES_OPT : -w
+      GLANCES_USERNAME : developer  # Username for auth
+      GLANCES_PASSWORD : '@Thedarkangels2010'  # Password for auth
+    restart: always
+    volumes:
+      # Monitor Docker containers
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      - dka-web-server
+
+networks:
+  dka-web-server:
+    external: true

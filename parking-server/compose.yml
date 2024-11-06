@@ -1,0 +1,29 @@
+name: dka-tuza-server-maxone
+
+services:
+  backend:
+    image: node:alpine
+    container_name: backend
+    hostname: maxone-backend
+    volumes:
+      - type: volume
+        source: backend-data
+        target: /app
+    working_dir: /app
+    command: yarn run dev
+    networks:
+      maxone-network:
+        ipv4_address: 78.10.2.2
+
+volumes:
+  mariadb-data:
+    driver: local
+  backend-data:
+    driver: local
+
+networks:
+  maxone-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet : 78.10.2.0/24

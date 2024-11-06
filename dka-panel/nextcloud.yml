@@ -1,0 +1,33 @@
+services:
+  nextcloud:
+    image: nextcloud
+    container_name: nextcloud
+    hostname: dka-nextcloud
+    restart: always
+    volumes:
+      - type: volume
+        source: dka-next-cloud-data
+        target: /var/www/html/data
+      - type: volume
+        source: dka-next-cloud-config
+        target: /var/www/html/config
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 150M
+        reservations:
+          cpus: '0.25'
+          memory: 100M
+    networks:
+      - dka-web-server
+
+volumes:
+  dka-next-cloud-config:
+    driver: local
+  dka-next-cloud-data:
+    driver: local
+
+networks:
+  dka-web-server:
+    external: true
