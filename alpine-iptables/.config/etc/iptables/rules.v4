@@ -1,0 +1,26 @@
+*filter
+
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+
+# Izinkan koneksi Jika Koneksi Sudah Terhubung
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# Batasi koneksi baru menjadi maksimal 3 per IP
+-A INPUT -p tcp --syn -m connlimit --connlimit-above 3 --connlimit-mask 128 -j REJECT --reject-with tcp-reset
+
+# Lindungi dari SYN flood (maksimal 10 koneksi SYN baru per detik per IP)
+-A INPUT -p tcp --syn -m limit --limit 10/second --limit-burst 20 -j ACCEPT
+-A INPUT -p tcp --syn -j DROP
+
+# Batasi jumlah koneksi per detik dari IP yang sama (maksimal 25 koneksi per IP per detik)
+-A INPUT -m conntrack --ctstate NEW -m hashlimit --hashlimit 25/second --hashlimit-burst 50 --hashlimit-mode srcip --hashlimit-name conn_limit -j ACCEPT
+
+# Block Koneksi Baru Jika Lebih dari 25 Koneksi
+-A INPUT -m conntrack --ctstate NEW -j DROP
+
+# Drop Koneksi Jika Invalid
+-A INPUT -m state --state INVALID -j DROP
+
+COMMIT

@@ -1,0 +1,7 @@
+post-auth {
+  if ("%{reply:download_limit}" && "%{reply:upload_limit}") {
+    update reply {
+      Mikrotik-Rate-Limit := "%{reply:download_limit}-%{reply:upload_limit}"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+################################################################################
+#                        DKA SSH Server - image alpine linux                   #
+#        **************************************************************        #
+#        *                Unauthorized Access is Prohibited           *        #
+#        **************************************************************        #
+#                     [Welcome to the DKA SSH Server]                          #
+#                    Please respect the privacy of others.                     #
+#                  Any unauthorized access will be monitored.                  #
+################################################################################

@@ -1,0 +1,26 @@
+#!/bin/bash
+# Set database credentials
+DB_USER="root"
+ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-root}
+BACKUP_DIR="/backup"
+echo "Available backup files:"
+# List .sql.gz files in the backup directory, strip directory path and extension
+select BACKUP_FILE in $(ls $BACKUP_DIR/*.sql.gz | sed 's|/backup/||' | sed 's|.sql.gz$||'); do
+    # Check if the user made a valid selection
+    if [ -z "$BACKUP_FILE" ]; then
+        echo "Invalid selection, please choose a file."
+    else
+        echo "Selected backup file: $BACKUP_FILE"
+        break
+    fi
+done
+# Get the full path of the selected backup file
+SELECTED_BACKUP_PATH="$BACKUP_DIR/$BACKUP_FILE.sql.gz"
+echo "Restoring database from $SELECTED_BACKUP_PATH..."
+# Restore the selected backup file
+gunzip < "$SELECTED_BACKUP_PATH" | mariadb -u $DB_USER -p$ROOT_PASSWORD
+if [ $? -eq 0 ]; then
+    echo "Restore completed successfully."
+else
+    echo "Restore failed."
+fi

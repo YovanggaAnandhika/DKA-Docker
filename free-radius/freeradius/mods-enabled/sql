@@ -1,0 +1,13 @@
+sql {
+  driver = "mongodb"
+  server = "${env:MONGO_SERVER}"   # Mengambil server MongoDB dari environment variable
+  database = "${env:MONGO_DB}"     # Mengambil nama database dari environment variable
+  username = "${env:MONGO_USER}"   # Mengambil username MongoDB dari environment variable
+  password = "${env:MONGO_PASSWORD}"  # Mengambil password MongoDB dari environment variable
+  table = "dka-billing-voucher"  # Nama koleksi MongoDB untuk voucher
+
+  check_query = "SELECT * FROM vouchers WHERE username = '%{User-Name}' AND password = '%{User-Password}' AND status = 'active' AND expiry_date > NOW()"
+
+  # Mendapatkan limit download dan upload dari MongoDB
+  reply_query = "SELECT download_limit, upload_limit FROM vouchers WHERE username = '%{User-Name}' AND password = '%{User-Password}' AND status = 'active' AND expiry_date > NOW()"
+}

@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Set database credentials
+DB_USER="root"
+# Set default values if environment variables are not provided
+ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-root}
+BACKUP_DIR="/backup"
+DATE=$(date +\%d-\%m-\%Y_\%H-\%M-\%S)
+BACKUP_FILE="$BACKUP_DIR/all_databases_$DATE.sql.gz"
+
+# Create a backup directory if it doesn't exist
+mkdir -p $BACKUP_DIR
+
+echo "Backing up all databases..."
+
+# Create a backup of all databases and compress it into a .sql.gz file using mariadb tools
+mariadb-dump -u $DB_USER -p$ROOT_PASSWORD --all-databases --add-drop-table --routines --triggers --events --verbose | gzip -9 > $BACKUP_FILE
+
+if [ $? -eq 0 ]; then
+    echo "Backup completed successfully: $BACKUP_FILE"
+else
+    echo "Backup failed."
+fi

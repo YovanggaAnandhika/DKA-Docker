@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  freeradius:
+    image: freeradius/freeradius-server:latest
+    container_name: freeradius
+    ports:
+      - "1812:1812"  # RADIUS Authentication port
+      - "1813:1813"  # RADIUS Accounting port
+    volumes:
+      - ./freeradius/config:/etc/freeradius/3.0
+    environment:
+      - RADIUS_DB_TYPE=mongo
+      - RADIUS_DB_HOST=mongodb
+      - RADIUS_DB_PORT=27017
+      - RADIUS_DB_NAME=radius
+      - RADIUS_DB_USER=root
+      - RADIUS_DB_PASS=rootpassword
+    depends_on:
+      - mongodb
+    networks:
+      - radius_network
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=rootpassword  # Set your desired root password here
+    volumes:
+      - ./mongo-data:/data/db
+    networks:
+      - radius_network
+
+networks:
+  radius_network:
+    driver: bridge
