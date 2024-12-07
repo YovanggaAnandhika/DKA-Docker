@@ -3,9 +3,19 @@
 DB_USER="root"
 ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-root}
 BACKUP_DIR="/backup"
+
+# Check if there are any .sql.gz files in the backup directory
+BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.sql.gz 2>/dev/null))
+
+# If no files are found, display a message and exit
+if [ ${#BACKUP_FILES[@]} -eq 0 ]; then
+    echo "No backup files available."
+    exit 1
+fi
+
 echo "Available backup files:"
-# List .sql.gz files in the backup directory, strip directory path and extension
-select BACKUP_FILE in $(ls $BACKUP_DIR/*.sql.gz | sed 's|/backup/||' | sed 's|.sql.gz$||'); do
+# List .sql.gz files in the backup directory, sorted by modification time (most recent first), strip directory path and extension
+select BACKUP_FILE in $(echo "${BACKUP_FILES[@]}" | sed 's|/backup/||' | sed 's|.sql.gz$|'); do
     # Check if the user made a valid selection
     if [ -z "$BACKUP_FILE" ]; then
         echo "Invalid selection, please choose a file."
@@ -14,9 +24,11 @@ select BACKUP_FILE in $(ls $BACKUP_DIR/*.sql.gz | sed 's|/backup/||' | sed 's|.s
         break
     fi
 done
+
 # Get the full path of the selected backup file
 SELECTED_BACKUP_PATH="$BACKUP_DIR/$BACKUP_FILE.sql.gz"
 echo "Restoring database from $SELECTED_BACKUP_PATH..."
+
 # Restore the selected backup file
 gunzip < "$SELECTED_BACKUP_PATH" | mariadb -u $DB_USER -p$ROOT_PASSWORD
 if [ $? -eq 0 ]; then
