@@ -1,0 +1,26 @@
+name: dev-php
+
+
+services:
+  frontend:
+    image: php:8.2-fpm-alpine
+    container_name: dev-php-frontend
+    hostname: dev-php-frontend
+    working_dir: /var/www/html
+    deploy:
+      resources:
+        reservations:
+          cpus: '0.6'
+          memory: 300M
+        limits:
+          cpus: '1.0'
+    ports:
+      - target: 80
+        published: 8081
+        host_ip: 0.0.0.0
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: .
+        target: /var/www/html
+    command: php -S 0.0.0:80

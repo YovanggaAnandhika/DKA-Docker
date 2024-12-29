@@ -10,31 +10,34 @@ DB_NAME=${DKA_DB_NAME:-test}
 DB_USERNAME=${DKA_DB_USERNAME:-test}
 DB_PASSWORD=${DKA_DB_PASSWORD:-test}
 
-# PERCENT_MEMORY sebagai persentase
-PERCENT_MEMORY=0.8
-# Membaca nilai memory.max dalam byte
-MEMORY_MAX=$(cat /sys/fs/cgroup/memory.max)
-# Mengalikan MEMORY_MAX dengan PERCENT_MEMORY menggunakan bc
-MEMORY_MAX=$(echo "$MEMORY_MAX * $PERCENT_MEMORY" | bc)
-# Membulatkan hasil ke bawah menjadi bilangan bulat
-MEMORY_MAX=$(printf "%.0f" $MEMORY_MAX)
-# Mengonversi nilai byte ke MB
-MEMORY_MAX_MB=$((MEMORY_MAX / 1024 / 1024))
-# Menambahkan akhiran 'M' untuk format MB
-MEMORY_MAX_MB="${MEMORY_MAX_MB}M"
-# Menampilkan nilai memory max dalam MB
-echo "Memory Max: $MEMORY_MAX_MB"
-# Menghitung QUERY_CACHE_SIZE sebagai 5% dari MEMORY_MAX
-QUERY_CACHE_SIZE_MB=$((MEMORY_MAX / 20 / 1024 / 1024))
-QUERY_CACHE_SIZE="${QUERY_CACHE_SIZE_MB}M"
-# Menghitung TMP_TABLE_SIZE sebagai 10% dari MEMORY_MAX
-TMP_TABLE_SIZE_MB=$((MEMORY_MAX / 10 / 1024 / 1024))
-TMP_TABLE_SIZE="${TMP_TABLE_SIZE_MB}M"
-# Mengganti placeholder dalam my.cnf dengan nilai yang didapatkan
-sed -i "s|{{INNODB_BUFFER_POOL_SIZE}}|$MEMORY_MAX_MB|g" /etc/my.cnf
-sed -i "s|{{QUERY_CACHE_SIZE}}|$QUERY_CACHE_SIZE|g" /etc/my.cnf
-sed -i "s|{{TMP_TABLE_SIZE}}|$TMP_TABLE_SIZE|g" /etc/my.cnf
+WSREP_IS_PRIMARY=${DKA_WSREP_IS_PRIMARY:-false}
 
+export WSREP_ON=${DKA_WSREP_ON:-OFF}
+export WSREP_CLUSTER_NAME=${DKA_WSREP_CLUSTER_NAME:-DKACluster}
+export WSREP_CLUSTER_ADDRESS=${DKA_WSREP_CLUSTER_ADDRESS:-gcomm://}
+export WSREP_PROVIDER=${DKA_WSREP_PROVIDER:-/usr/lib/libgalera_smm.so}
+
+export WSREP_NODE_NAME=${DKA_WSREP_NODE_NAME:-node1}
+export WSREP_NODE_ADDRESS=${DKA_WSREP_NODE_ADDRESS:-127.0.0.1}
+export WSREP_SST_METHOD=${DKA_WSREP_SST_METHOD:-rsync}
+
+#inject config
+inject_my_cnf() {
+
+  # Debugging: cek nilai variabel sebelum injeksi
+  echo "WSREP_ON=${WSREP_ON}"
+  echo "WSREP_PROVIDER=${WSREP_PROVIDER}"
+  echo "WSREP_CLUSTER_NAME=${WSREP_CLUSTER_NAME}"
+  echo "WSREP_CLUSTER_ADDRESS=${WSREP_CLUSTER_ADDRESS}"
+  echo "WSREP_NODE_NAME=${WSREP_NODE_NAME}"
+  echo "WSREP_NODE_ADDRESS=${WSREP_NODE_ADDRESS}"
+
+  # Inject configuration into my.cnf
+  echo "Menginjeksi konfigurasi ke ${DEFAULT_CONFIG_PATH}..."
+  envsubst < /etc/my.cnf.template > "${DEFAULT_CONFIG_PATH}"
+  chmod 644 "${DEFAULT_CONFIG_PATH}"
+  cat /etc/my.cnf
+}
 
 # Fungsi untuk memulai MariaDB
 start_mariadb() {
@@ -57,6 +60,11 @@ if [ ! -d "/var/lib/mysql/mysql" ]; then
     mariadb-install-db --defaults-file=${DEFAULT_CONFIG_PATH} > /dev/null 2>&1
     echo "Database Successfully initiate..."
 
+    # check configurasi galera
+    if [ "$WSREP_ON" = "ON" ]; then
+      echo "WSREP is ON. inject the config"
+      inject_my_cnf
+    fi
     # Mulai MariaDB sementara untuk mengeksekusi skrip inisialisasi
     start_mariadb
 
@@ -98,6 +106,11 @@ if [ "$ENABLED_CRON" = "true" ]; then
   done
 fi
 
+# check configurasi galera
+if [ "$WSREP_ON" = "ON" ]; then
+  echo "WSREP is ON. inject the config"
+  inject_my_cnf
+fi
 # Menjalankan logrotate
 echo "Running Logrotate..."
 logrotate -f /etc/logrotate.conf >/dev/null 2>&1;

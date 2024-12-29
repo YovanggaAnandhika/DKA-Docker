@@ -29,60 +29,13 @@ services:
     restart: always
     networks:
       - dka-web-server
-      - dka-db-server
-
-  phpmyadmin:
-    image: bitnami/phpmyadmin:latest
-    container_name: phpmyadmin
-    hostname: dka-phpmyadmin
-    restart: always
-    environment:
-      PHPMYADMIN_ALLOW_ARBITRARY_SERVER: yes
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 150M
-        reservations:
-          cpus: '0.25'
-          memory: 50M
-    networks:
-      - dka-db-server
-
-  portainer:
-    image: portainer/portainer-ce:latest
-    container_name: portainer
-    hostname: dka-portainer
-    restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 150M
-        reservations:
-          cpus: '0.25'
-          memory: 100M
-    volumes:
-      - type: bind
-        source: /var/run/docker.sock
-        target: /var/run/docker.sock
-      - type: volume
-        source: dka-portainer-data
-        target: /data
-    networks:
-      - dka-web-server
 
 volumes:
   dka-panel-nginx-data:
     driver: local
   dka-panel-nginx-letsencrypt:
     driver: local
-  dka-portainer-data:
-    driver: local
 
 networks:
   dka-web-server:
-    external: true
-
-  dka-db-server:
     external: true

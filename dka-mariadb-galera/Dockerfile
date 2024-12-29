@@ -3,17 +3,16 @@ FROM alpine:3.21.0
 # Maintainer
 LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
 # Run update & Install Mariadb
-RUN apk update && apk add --no-cache mariadb mariadb-client mariadb-server-utils tzdata htop nano dcron logrotate bash rsync
-RUN apk add --no-cache cgroup-tools
+RUN apk update && apk add --no-cache mariadb mariadb-client mariadb-server-utils tzdata htop nano dcron logrotate bash rsync galera envsubst gettext
 # Clear all cache
 RUN rm -rf /var/cache/apk/*
 # Set the timezone (e.g., Asia/Makassar)
 ENV TZ=Asia/Makassar
 # Copy Mariadb configuration file
-COPY config/mysql/my.cnf /etc/my.cnf
+COPY config/mysql /etc/
 # Copy existing log rotate config
 COPY config/logrotate.d /etc/logrotate.d/
-# Add Log System
+# Add Log System/my.cnf
 RUN mkdir -p /var/log/mysql
 RUN chown mysql:mysql /var/log/mysql
 # add backup directory

@@ -1,0 +1,101 @@
+name: dka-database
+
+services:
+  mariadb1:
+    image: local-dka:mariadb
+    container_name: dka-database-mariadb1
+    hostname: dka-database-mariadb1
+    environment:
+      DKA_ROOT_PASSWORD: Cyberhack2010
+      DKA_DB_NAME: dka
+      DKA_DB_USERNAME: dka
+      DKA_DB_PASSWORD: Cyberhack2010
+      DKA_CRON_ENABLE: false
+      DKA_CRON_PRIODIC: "0 3 * * *"
+
+      DKA_WSREP_IS_PRIMARY: true
+      DKA_WSREP_ON: ON
+      DKA_WSREP_CLUSTER_NAME: DKACluster
+      DKA_WSREP_CLUSTER_ADDRESS: gcomm://
+      DKA_WSREP_NODE_NAME: dka-database-mariadb1
+      DKA_WSREP_NODE_ADDRESS: dka-database-mariadb1
+    ports:
+      - target: 3306
+        published: 3306
+        protocol: tcp
+        host_ip: 0.0.0.0
+    mem_limit: 512M
+    cpus: '1.0'
+    cpu_count: 1
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 300M
+          cpus: '0.8'
+    volumes:
+      - type: volume
+        source: data1
+        target: /var/lib/mysql
+      - type: volume
+        source: backup
+        target: /backup
+    networks:
+      - default
+
+  mariadb2:
+    image: local-dka:mariadb
+    container_name: dka-database-mariadb2
+    hostname: dka-database-mariadb2
+    environment:
+      DKA_ROOT_PASSWORD: Cyberhack2010
+      DKA_DB_NAME: dka
+      DKA_DB_USERNAME: dka
+      DKA_DB_PASSWORD: Cyberhack2010
+      DKA_CRON_ENABLE: false
+      DKA_CRON_PRIODIC: "0 3 * * *"
+      DKA_WSREP_ON: ON
+      DKA_WSREP_CLUSTER_NAME: DKACluster
+      DKA_WSREP_CLUSTER_ADDRESS: gcomm://dka-database-mariadb1,dka-database-mariadb2
+      DKA_WSREP_NODE_NAME: dka-database-mariadb2
+      DKA_WSREP_NODE_ADDRESS: dka-database-mariadb2
+    depends_on:
+      - mariadb1
+    ports:
+      - target: 3306
+        published: 3307
+        protocol: tcp
+        host_ip: 0.0.0.0
+    mem_limit: 512M
+    cpus: '1.0'
+    cpu_count: 1
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 300M
+          cpus: '0.8'
+    volumes:
+      - type: volume
+        source: data2
+        target: /var/lib/mysql
+      - type: volume
+        source: backup
+        target: /backup
+    networks:
+      - default
+volumes:
+  data1:
+    driver: local
+  data2:
+    driver: local
+  backup:
+    driver: local
+
+networks:
+  default:
+    driver: bridge

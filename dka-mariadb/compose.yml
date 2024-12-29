@@ -2,7 +2,7 @@ name: dka-database
 
 services:
   mariadb:
-    image: yovanggaanandhika/mariadb
+    image: yovanggaanandhika/mariadb:latest
     container_name: dka-database-mariadb
     hostname: dka-database-mariadb
     restart: always
@@ -12,22 +12,19 @@ services:
       DKA_DB_USERNAME: dka
       DKA_DB_PASSWORD: Cyberhack2010
       DKA_CRON_ENABLE: true
-      DKA_CRON_PRIODIC: 0 3 * * *
+      DKA_CRON_PRIODIC: '*/5 * * * *'
     ports:
       - target: 3306
         published: 3306
         protocol: tcp
         host_ip: 0.0.0.0
-    mem_limit: 512M
-    cpus: '1.0'
-    cpu_count: 1
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1G
           cpus: '1.0'
         reservations:
-          memory: 300M
+          memory: 500M
           cpus: '0.8'
     volumes:
       - type: volume
@@ -38,7 +35,6 @@ services:
         target: /backup
     networks:
       - default
-
 
 volumes:
   data:
