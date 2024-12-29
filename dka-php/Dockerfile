@@ -56,6 +56,7 @@ RUN apk add --no-cache php83-intl
 RUN apk add --no-cache php83-xmlwriter
 RUN apk add --no-cache php83-fileinfo
 RUN apk add --no-cache php83-sqlite3
+RUN apk add --no-cache php83-pdo_sqlite
 
 # Create a user
 RUN adduser -S www-data -G www-data
