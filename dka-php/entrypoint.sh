@@ -1,19 +1,19 @@
 #!/bin/bash
 set -e
 
-# Start PHP-FPM and log output to console
+# Start PHP-FPM
 echo "Starting PHP-FPM..."
-php-fpm83 -F &
+php-fpm83 -F &  # Jalankan PHP-FPM di latar belakang
 
-# Start Nginx and log output to console
+# Start Nginx
 echo "Starting Nginx..."
-nginx &
+nginx &  # Jalankan Nginx di latar belakang
 
-# shellcheck disable=SC2198
-if [ -z "$@" ]; then
-    # If no arguments were passed to exec, run a fallback command
-    exec tail -f /var/log/*/**.log
-else
+# Tunggu jika tidak ada argumen, atau eksekusi argumen jika ada
+if [ "$#" -gt 0 ]; then
     # If arguments exist, execute them
     exec "$@"
+else
+    # If no arguments were passed, wait for background processes
+    wait
 fi
