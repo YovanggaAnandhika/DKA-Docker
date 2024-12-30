@@ -1,12 +1,6 @@
 #!/bin/bash
 set -e
 
-# Memeriksa apakah file 'composer.json' ada
-if [ -f "composer.json" ]; then
-    echo "File 'composer.json' ditemukan, menjalankan composer install..."
-    composer install
-fi
-
 # Start PHP-FPM and log output to console
 echo "Starting PHP-FPM..."
 php-fpm83 -F &
