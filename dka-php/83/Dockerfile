@@ -10,7 +10,7 @@ RUN apk add --no-cache nginx tzdata json-c-dev libpng-dev libjpeg-turbo-dev free
 RUN apk add --no-cache php php83-ctype php83-fpm php83-dom php83-mysqli php83-opcache \
     php83-mbstring php83-xml php83-zip php83-curl php83-gd php83-bcmath php83-intl php83-soap php83-pdo \
     php83-pdo_mysql php83-gettext php83-session php83-tokenizer php83-cli php83-phar php83-json php83-iconv php83-openssl \
-    php83-mysqlnd php83-intl php83-xmlwriter php83-fileinfo php83-sqlite3 php83-pdo_sqlite
+    php83-mysqlnd php83-intl php83-xmlwriter php83-fileinfo php83-sqlite3 php83-pdo_sqlite php83-simplexml php83-xmlreader
 # Set the timezone (e.g., Asia/Makassar)
 ENV TZ=Asia/Makassar
 # Create a user
