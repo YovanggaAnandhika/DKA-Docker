@@ -1,0 +1,40 @@
+name: radius
+
+services:
+  app:
+    image: yovanggaanandhika/radius:dev
+    container_name: radius-app
+    hostname: radius-app
+    restart: always
+    ports:
+      - target: 1812
+        published: 1812
+        protocol: udp
+        host_ip: 0.0.0.0
+      - target: 1813
+        published: 1813
+        protocol: udp
+        host_ip: 0.0.0.0
+      - target: 3799
+        published: 3799
+        host_ip: 0.0.0.0
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 500M
+          cpus: '0.8'
+    networks:
+      - default
+
+volumes:
+  data:
+    driver: local
+  backup:
+    driver: local
+
+networks:
+  default:
+    driver: bridge

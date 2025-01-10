@@ -1,0 +1,1 @@
+docker buildx build --platform linux/amd64,linux/386,linux/arm64/v8,linux/ppc64le,linux/riscv64 -t yovanggaanandhika/freeradius:rest --push .

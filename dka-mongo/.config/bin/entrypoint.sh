@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+export DKA_HOSTNAME=$(hostname) # Ambil hostname sistem
+
 export DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
 export DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
 
@@ -62,10 +64,14 @@ if [ "$#" -gt 0 ]; then
 else
     # If no arguments were passed, start MongoDB
     if [ "$DKA_REPL_ENABLED" = "true" ]; then
-        echo "Replica set mode enabled. Starting MongoDB with replica set: $DKA_REPL_NAME"
-        exec mongod --config /etc/mongod.conf --replSet "$DKA_REPL_NAME"
+        echo "mongo engine starting ..."
+        exec mongod --config /etc/mongod.conf --replSet "$DKA_REPL_NAME" &
+        echo "mongo engine started"
+        wait
     else
-        echo "Replica set mode disabled. Starting MongoDB without replica set."
-        exec mongod --config /etc/mongod.conf
+        echo "mongo engine starting ..."
+        exec mongod --config /etc/mongod.conf &
+        echo "mongo engine started"
+        wait
     fi
 fi

@@ -1,0 +1,86 @@
+services:
+  app:
+    image: yovanggaanandhika/dev:radius
+    container_name: app
+    hostname: app
+    restart: always
+    working_dir: /var/www
+    #environment:
+      #DKA_SERVER_REST: 127.0.0.1
+      #DKA_NAS_IP_ADDRESS: 113.113.0.7
+      #DKA_NAS_SECRET: Cyberhack2010
+      #DKA_NAS_TYPE: Mikrotik
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.80"
+          memory: 128M
+    volumes:
+      - type: bind
+        source: app
+        target: /var/www
+      - type: bind
+        source: .config/raddb/mods-enabled/rest
+        target: /etc/raddb/mods-enabled/rest
+      - type: bind
+        source: .config/raddb/sites-enabled/coa
+        target: /etc/raddb/sites-enabled/coa
+      - type: bind
+        source: .config/raddb/sites-enabled/originate-coa
+        target: /etc/raddb/sites-enabled/originate-coa
+      - type: bind
+        source: .config/raddb/clients.conf
+        target: /etc/raddb/clients.conf
+      - type: bind
+        source: .config/raddb/sites-enabled/default
+        target: /etc/raddb/sites-enabled/default
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        host_ip: 0.0.0.0
+      - target: 1812
+        published: 1812
+        protocol: udp
+        host_ip: 0.0.0.0
+      - target: 1813
+        published: 1813
+        protocol: udp
+        host_ip: 0.0.0.0
+      - target: 3799
+        published: 3799
+        protocol: udp
+        host_ip: 0.0.0.0
+    networks:
+      - default
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    hostname: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
+    ports:
+      - target: 27017
+        published: 27017
+        protocol: tcp
+        host_ip: 0.0.0.0
+    restart: always
+    volumes:
+      - type: volume
+        source: mongo_data
+        target: /data/db
+    networks:
+      - default
+
+
+volumes:
+  mongo_data:
+    driver: local
+networks:
+  default:
+    driver: bridge

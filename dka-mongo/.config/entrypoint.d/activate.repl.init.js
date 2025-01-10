@@ -1,3 +1,5 @@
+// Ambil hostname sistem dari variabel lingkungan
+const hostname = process.env.DKA_HOSTNAME || "localhost";
 const replSetEnabled = process.env.DKA_REPL_ENABLED;
 const replSetName = process.env.DKA_REPL_NAME;
 
@@ -13,7 +15,12 @@ if (replSetEnabled === "true"){
         }
     } catch (e) {
         print(`Initializing replica set "${replSetName}"...`);
-        rs.initiate();
+        rs.initiate({
+            _id: replSetName,
+            members: [
+                { _id: 0, host: `${hostname}:27017` }
+            ]
+        });
 
         print(`Replica set "${replSetName}" initialized successfully.`);
     }

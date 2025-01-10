@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
 # Tunggu jika tidak ada argumen, atau eksekusi argumen jika ada
@@ -7,5 +7,5 @@ if [ "$#" -gt 0 ]; then
     exec "$@"
 else
     # If no arguments were passed, wait for background processes
-    tail -f /dev/null;
+    tail -f /dev/null
 fi
