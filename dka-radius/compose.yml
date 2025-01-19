@@ -1,15 +1,15 @@
 services:
   app:
-    image: yovanggaanandhika/dev:radius
+    image: yovanggaanandhika/freeradius:alpine-rest
     container_name: app
     hostname: app
     restart: always
     working_dir: /var/www
-    #environment:
-      #DKA_SERVER_REST: 127.0.0.1
-      #DKA_NAS_IP_ADDRESS: 113.113.0.7
-      #DKA_NAS_SECRET: Cyberhack2010
-      #DKA_NAS_TYPE: Mikrotik
+    environment:
+      DKA_SERVER_REST: 127.0.0.1
+      DKA_NAS_IP_ADDRESS: 80.80.0.1
+      DKA_NAS_SECRET: radius
+      DKA_NAS_TYPE: Mikrotik
     deploy:
       resources:
         limits:

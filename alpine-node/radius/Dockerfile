@@ -2,10 +2,9 @@ FROM alpine:3.21
 #############################################################################
 # Installing Base Dependencies
 #############################################################################
-# Installing Radius
-RUN apk update
-RUN apk add --no-cache libressl libressl-dev libpcap curl nano bash iputils-ping tzdata
-RUN apk add --no-cache freeradius freeradius-utils freeradius-mysql freeradius-rest freeradius-radclient freeradius-sqlite
+# Update Repo
+RUN apk update && apk add --no-cache libressl libressl-dev libpcap curl nano bash openssl nodejs npm bash iputils-ping tzdata  \
+    freeradius freeradius-utils freeradius-mysql freeradius-rest freeradius-radclient freeradius-sqlite && npm install -g yarn
 RUN rm -rf /var/cache/apk/* && apk cache clean
 #############################################################################
 # End Base Dependencies
@@ -26,7 +25,7 @@ ENV TZ=Asia/Makassar
 ENV DKA_SERVER_REST_HOST=127.0.0.1
 ENV DKA_SERVER_REST_PROTOCOL="http://"
 ENV DKA_SERVER_REST_ENDPOINT="/api/radius"
-ENV DKA_NAS_IP_ADDRESS=113.113.0.7
+ENV DKA_NAS_IP_ADDRESS=127.0.0.1
 ENV DKA_NAS_TYPE=Mikrotik
 #############################################################################
 # End ENV Script
@@ -41,10 +40,10 @@ RUN chmod +x /usr/local/bin/*
 # End Entrypoint Script
 #############################################################################
 #----------------------------------------------------------------------------
-EXPOSE 1812 1813
+EXPOSE 80 443 1812 1813
 #----------------------------------------------------------------------------
 # Adding Entrypoint
-ENTRYPOINT ["entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 #----------------------------------------------------------------------------
 # Run Default CMD
 

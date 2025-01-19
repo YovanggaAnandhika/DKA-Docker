@@ -7,8 +7,20 @@ export DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
 export DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
 
 export GLIBC_TUNABLES=glibc.pthread.rseq=0
-export DKA_REPL_ENABLED=${DKA_REPL_ENABLED:-true}
+export DKA_REPL_ENABLED=${DKA_REPL_ENABLED:-false}
 export DKA_REPL_NAME=${DKA_REPL_NAME:-rs0}
+
+# Fungsi untuk memonitor MariaDB dan restart jika gagal
+watch_services() {
+  while true; do
+    # Memeriksa apakah mariadbd, nginx, dan php-fpm berjalan
+    if ! pgrep mongod > /dev/null; then
+      echo "mongod process stopped. exit container ..."
+      exit 1
+    fi
+    sleep 3
+  done
+}
 
 
 wait_mongo_start() {
@@ -27,7 +39,6 @@ start_first_mongo() {
      mongod &
      MONGOD_PID=$!
    fi
-
 }
 
 running_init_file() {
@@ -35,7 +46,7 @@ running_init_file() {
       for file in /docker-entrypoint-initdb.d/*.init.js; do
           if [ -f "$file" ]; then
               echo "Running $file"
-              mongosh < "$file"
+              mongosh < "$file" > /dev/null 2>&1;
           fi
       done
   fi
@@ -67,11 +78,11 @@ else
         echo "mongo engine starting ..."
         exec mongod --config /etc/mongod.conf --replSet "$DKA_REPL_NAME" &
         echo "mongo engine started"
-        wait
+        watch_services
     else
         echo "mongo engine starting ..."
         exec mongod --config /etc/mongod.conf &
         echo "mongo engine started"
-        wait
+        watch_services
     fi
 fi

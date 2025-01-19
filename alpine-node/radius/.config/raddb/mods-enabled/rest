@@ -1,0 +1,43 @@
+rest {
+	connect_uri = "$ENV{DKA_SERVER_REST_PROTOCOL}$ENV{DKA_SERVER_REST_HOST}$ENV{DKA_SERVER_REST_ENDPOINT}"
+
+	authorize {
+		uri = "${..connect_uri}/authorize"
+		method = 'post'
+		# Format body yang dikirimkan adalah JSON
+        body = "json"
+	}
+
+	authenticate {
+		uri = "${..connect_uri}/authenticate"
+		method = 'post'
+		# Format body yang dikirimkan adalah JSON
+        body = "json"
+	}
+
+	#  Accounting/Post-auth
+	#
+	#  Code   Meaning       Process body  Module code
+	#  204    no content    no            ok
+	#  2xx    successful    yes           ok/updated
+	#  5xx    server error  no            fail
+	#  xxx    -             no            invalid
+	accounting {
+		uri = "${..connect_uri}/accounting"
+		method = 'post'
+		# Format body yang dikirimkan adalah JSON
+        body = "json"
+	}
+
+	pool {
+		start = ${thread[pool].start_servers}
+		min = 0
+		max = ${thread[pool].max_servers}
+		spare = ${thread[pool].max_spare_servers}
+		uses = 0
+		retry_delay = 30
+		lifetime = 0
+		idle_timeout = 60
+		connect_timeout = 6.0
+	}
+}
