@@ -11,6 +11,7 @@ export DKA_CRON_PRIODIC=${DKA_CRON_PRIODIC:-0 3 * * *}
 export GLIBC_TUNABLES=glibc.pthread.rseq=0
 export DKA_REPL_ENABLED=${DKA_REPL_ENABLED:-false}
 export DKA_REPL_NAME=${DKA_REPL_NAME:-rs0}
+
 # Fungsi untuk memonitor MariaDB dan restart jika gagal
 watch_services() {
   while true; do
@@ -44,10 +45,23 @@ start_first_mongo() {
 
 running_init_file() {
   if [ -d /docker-entrypoint-initdb.d ]; then
-      for file in /docker-entrypoint-initdb.d/*.init.js; do
+      for file in /docker-entrypoint-initdb.d/*.js; do
           if [ -f "$file" ]; then
               echo "Running $file"
-              mongosh < "$file" > /dev/null 2>&1;
+              mongosh --verbose < "$file" >> /var/log/mongosh-init.log 2>&1
+          fi
+      done
+  fi
+}
+
+
+running_after_init_file() {
+  if [ -d /entrypoint.d ]; then
+      for file in /entrypoint.d/*.js; do
+          if [ -f "$file" ]; then
+              echo "Running $file"
+              # Menggunakan eval untuk memuat file dan mencetak output yang dihasilkan
+              mongosh --verbose --username "$DKA_MONGO_USERNAME" --password "$DKA_MONGO_PASSWORD" < "$file" >> /var/log/mongosh-init.log 2>&1
           fi
       done
   fi
@@ -61,6 +75,7 @@ shutdown_mongod() {
 # Mendeteksi MongoDB Pertama Kali
 if [ -z "$(ls -A /data/db)" ]; then
     echo "First-time installation detected. Initializing..."
+    touch /var/log/mongodb/mongod.log
     start_first_mongo
     wait_mongo_start
     running_init_file
@@ -105,6 +120,8 @@ else
         echo "mongo engine starting ..."
         exec mongod --config /etc/mongod.conf --replSet "$DKA_REPL_NAME" &
         echo "mongo engine started"
+        wait_mongo_start
+        running_after_init_file
         echo "show system log ..."
         tail -f /var/log/mongodb/mongod.log &
         echo "starting monitoring service health check"
@@ -118,6 +135,8 @@ else
         echo "mongo engine starting ..."
         exec mongod --config /etc/mongod.conf &
         echo "mongo engine started"
+        wait_mongo_start
+        running_after_init_file
         echo "show system log ..."
         tail -f /var/log/mongodb/mongod.log &
         echo "starting monitoring service health check"

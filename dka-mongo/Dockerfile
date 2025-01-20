@@ -27,7 +27,10 @@ RUN chmod -R 644 /usr/cron.d/* && chmod +x /usr/cron.d/*
 # Local Bin & Create entrypoint.d directory and copy init.js
 COPY .config/cron/* /usr/local/bin/
 RUN chmod +x /usr/local/bin/* && mkdir -p /docker-entrypoint-initdb.d
-COPY .config/entrypoint.d/* /docker-entrypoint-initdb.d/
+COPY .config/docker.entrypoint.d/* /docker-entrypoint-initdb.d/
+# Run Entrypoint JS After init
+RUN mkdir -p /entrypoint.d
+COPY .config/entrypoint.d/* /entrypoint.d/
 # expose port
 EXPOSE 27017
 # Set the entrypoint
