@@ -6,17 +6,16 @@ export DKA_HOSTNAME=$(hostname) # Ambil hostname sistem
 export DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
 export DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
 export DKA_CRON_ENABLE=${DKA_CRON_ENABLE:-false}
-export DKA_CRON_PRIODIC=${DKA_CRON_PRIODIC:-* * * * *}
+export DKA_CRON_PRIODIC=${DKA_CRON_PRIODIC:-0 3 * * *}
 
 export GLIBC_TUNABLES=glibc.pthread.rseq=0
 export DKA_REPL_ENABLED=${DKA_REPL_ENABLED:-false}
 export DKA_REPL_NAME=${DKA_REPL_NAME:-rs0}
-
 # Fungsi untuk memonitor MariaDB dan restart jika gagal
 watch_services() {
   while true; do
     # Memeriksa apakah mongod, cron berjalan
-    if ! pgrep mongod > /dev/null || ! pgrep cron > /dev/null; then
+    if ! pgrep mongod > /dev/null || ! pgrep cron > /dev/null || ! pgrep logrotate > /dev/null; then
       echo "one or more process stopped. exit container ..."
       exit 1
     fi
@@ -35,10 +34,10 @@ wait_mongo_start() {
 
 start_first_mongo() {
    if [ "$DKA_REPL_ENABLED" = "true" ]; then
-      mongod --replSet "$DKA_REPL_NAME" &
+      mongod --logpath /var/log/mongodb/mongod.log --logappend --replSet "$DKA_REPL_NAME" &
       MONGOD_PID=$!
    else
-     mongod &
+     mongod --logpath /var/log/mongodb/mongod.log --logappend &
      MONGOD_PID=$!
    fi
 }
@@ -56,7 +55,7 @@ running_init_file() {
 
 shutdown_mongod() {
   echo "Shutting down MongoDB..."
-  mongod --shutdown || echo "MongoDB shutdown encountered an issue."
+  mongod --shutdown > /dev/null 2>&1 || echo "MongoDB shutdown encountered an issue."
 }
 
 # Mendeteksi MongoDB Pertama Kali
@@ -70,20 +69,26 @@ else
     echo "Existing MongoDB data detected. Continuing..."
 fi
 
-# Menjalankan cron jika diaktifkan
-if [ "$DKA_CRON_ENABLE" = "true" ]; then
-  for file in /usr/cron.d/*; do
-    if [ -x "$file" ]; then
-      cron_name=$(basename "$file")
-      # Menambahkan log output ke file log
-      echo "${DKA_CRON_PRIODIC} root /bin/bash $file" > "/etc/cron.d/$cron_name"
-    fi
-  done
-fi
+export_cron_file() {
+  echo "exporting cron file ..."
+  # Menjalankan cron jika diaktifkan
+  if [ "$DKA_CRON_ENABLE" = "true" ]; then
+    for file in /usr/cron.d/*; do
+      if [ -x "$file" ]; then
+        cron_name=$(basename "$file")
+        # Menambahkan log output ke file log
+        echo "${DKA_CRON_PRIODIC} root /bin/bash $file" > "/etc/cron.d/$cron_name"
+      fi
+    done
+  fi
+  echo "cron file is exported..."
+}
 
-# Start cron in the background
-echo "Starting Crontab Backup..."
-cron &
+start_log_rotate(){
+  echo "starting rotate log ..."
+  logrotate -f /etc/logrotate.conf &
+  echo "rotate log started ..."
+}
 
 # Tunggu jika tidak ada argumen, atau eksekusi argumen jika ada
 if [ "$#" -gt 0 ]; then
@@ -92,14 +97,30 @@ if [ "$#" -gt 0 ]; then
 else
     # If no arguments were passed, start MongoDB
     if [ "$DKA_REPL_ENABLED" = "true" ]; then
+        start_log_rotate
+        export_cron_file
+        # Start cron in the background
+        echo "Starting crontab scheduler ..."
+        cron &
         echo "mongo engine starting ..."
         exec mongod --config /etc/mongod.conf --replSet "$DKA_REPL_NAME" &
         echo "mongo engine started"
+        echo "show system log ..."
+        tail -f /var/log/mongodb/mongod.log &
+        echo "starting monitoring service health check"
         watch_services
     else
+        start_log_rotate
+        export_cron_file
+        # Start cron in the background
+        echo "Starting crontab scheduler..."
+        cron &
         echo "mongo engine starting ..."
         exec mongod --config /etc/mongod.conf &
         echo "mongo engine started"
+        echo "show system log ..."
+        tail -f /var/log/mongodb/mongod.log &
+        echo "starting monitoring service health check"
         watch_services
     fi
 fi

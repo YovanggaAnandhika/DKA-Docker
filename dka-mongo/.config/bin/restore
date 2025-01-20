@@ -4,10 +4,10 @@ export DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
 export DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
 export BACKUP_DIR="/backup"
 
-# Get the list of up to 50 .tar.gz files sorted by modification time
+# Get the list of up to 50 .gz files sorted by modification time
 # shellcheck disable=SC2207
 # shellcheck disable=SC2012
-BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.tar.gz 2>/dev/null | head -n 50))
+BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.gz 2>/dev/null | head -n 50))
 
 # If no files are found, display a message and exit
 if [ ${#BACKUP_FILES[@]} -eq 0 ]; then
@@ -22,7 +22,7 @@ PS3="Select a backup file to restore: "
 MENU_OPTIONS=()
 for file in "${BACKUP_FILES[@]}"; do
     FILE_SIZE=$(du -h "$file" | awk '{print $1}')
-    MENU_OPTIONS+=("$(basename "$file" .tar.gz) ($FILE_SIZE)")
+    MENU_OPTIONS+=("$(basename "$file" .gz) ($FILE_SIZE)")
 done
 
 # Display menu for selecting a file
@@ -40,9 +40,9 @@ select CHOICE in "${MENU_OPTIONS[@]}"; do
 done
 
 # Get the full path of the selected backup file
-SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE.tar.gz"
-echo "Restoring database from $SELECTED_BACKUP_PATH..."
-mongorestore --host 127.0.0.1 --username $DKA_MONGO_USERNAME --password $DKA_MONGO_PASSWORD --drop --gzip --archive=$SELECTED_BACKUP_PATH
+SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE.gz"
+echo "Restoring database from $SELECTED_FILE.gz .."
+mongorestore --host 127.0.0.1 --username $DKA_MONGO_USERNAME --password $DKA_MONGO_PASSWORD --verbose --drop --gzip --archive=$SELECTED_BACKUP_PATH
 
 # Check if restore was successful
 if [ $? -eq 0 ]; then
