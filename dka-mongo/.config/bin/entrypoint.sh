@@ -15,7 +15,7 @@ export DKA_REPL_NAME=${DKA_REPL_NAME:-rs0}
 watch_services() {
   while true; do
     # Memeriksa apakah mongod, cron berjalan
-    if ! pgrep mongod > /dev/null || ! pgrep cron > /dev/null || ! pgrep logrotate > /dev/null; then
+    if ! pgrep mongod > /dev/null || ! pgrep cron > /dev/null; then
       echo "one or more process stopped. exit container ..."
       exit 1
     fi
