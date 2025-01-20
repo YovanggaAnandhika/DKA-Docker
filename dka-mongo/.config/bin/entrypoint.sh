@@ -5,6 +5,8 @@ export DKA_HOSTNAME=$(hostname) # Ambil hostname sistem
 
 export DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
 export DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
+export DKA_CRON_ENABLE=${DKA_CRON_ENABLE:-false}
+export DKA_CRON_PRIODIC=${DKA_CRON_PRIODIC:-* * * * *}
 
 export GLIBC_TUNABLES=glibc.pthread.rseq=0
 export DKA_REPL_ENABLED=${DKA_REPL_ENABLED:-false}
@@ -13,9 +15,9 @@ export DKA_REPL_NAME=${DKA_REPL_NAME:-rs0}
 # Fungsi untuk memonitor MariaDB dan restart jika gagal
 watch_services() {
   while true; do
-    # Memeriksa apakah mariadbd, nginx, dan php-fpm berjalan
-    if ! pgrep mongod > /dev/null; then
-      echo "mongod process stopped. exit container ..."
+    # Memeriksa apakah mongod, cron berjalan
+    if ! pgrep mongod > /dev/null || ! pgrep cron > /dev/null; then
+      echo "one or more process stopped. exit container ..."
       exit 1
     fi
     sleep 3
@@ -67,6 +69,21 @@ if [ -z "$(ls -A /data/db)" ]; then
 else
     echo "Existing MongoDB data detected. Continuing..."
 fi
+
+# Menjalankan cron jika diaktifkan
+if [ "$DKA_CRON_ENABLE" = "true" ]; then
+  for file in /usr/cron.d/*; do
+    if [ -x "$file" ]; then
+      cron_name=$(basename "$file")
+      # Menambahkan log output ke file log
+      echo "${DKA_CRON_PRIODIC} root /bin/bash $file" > "/etc/cron.d/$cron_name"
+    fi
+  done
+fi
+
+# Start cron in the background
+echo "Starting Crontab Backup..."
+cron &
 
 # Tunggu jika tidak ada argumen, atau eksekusi argumen jika ada
 if [ "$#" -gt 0 ]; then

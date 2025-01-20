@@ -1,0 +1,23 @@
+#!/bin/bash
+set -e
+
+export DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
+export DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
+export DKA_HOSTNAME=$(hostname) # Ambil hostname sistem
+
+# Konfigurasi
+BACKUP_DIR="/backup"  # Direktori tujuan backup
+TIMESTAMP=$(date +"%H-%M-%d-%m-%Y")  # Format timestamp (mengganti : dengan -)
+ARCHIVE_FILE="${DKA_HOSTNAME}_${TIMESTAMP}.tar.gz"  # Nama file arsip
+
+# Membuat direktori backup jika belum ada
+mkdir -p "$BACKUP_DIR"
+
+# Melakukan backup MongoDB menggunakan mongodump
+echo "Melakukan backup MongoDB..."
+if mongodump --host 127.0.0.1 --username "$DKA_MONGO_USERNAME" --password "$DKA_MONGO_PASSWORD" --gzip --archive="$BACKUP_DIR/$ARCHIVE_FILE"; then
+    echo "Backup berhasil disimpan di $BACKUP_DIR/$ARCHIVE_FILE"
+else
+    echo "Backup gagal!" >&2
+    exit 1
+fi
