@@ -24,6 +24,9 @@ COPY config/bin /usr/local/bin/
 COPY config/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/*
 COPY config/docker-entrypoint-initdb.d /docker-entrypoint-initdb.d
+# Create Automation SQL
+COPY config/docker-entrypoint.d /docker-entrypoint.d
+RUN chown mysql:mysql /docker-entrypoint.d
 # Buka port untuk komunikasi MariaDB dan Galera
 EXPOSE 3306
 # Use the entrypoint script to start the database

@@ -31,6 +31,7 @@ COPY .config/docker.entrypoint.d/* /docker-entrypoint-initdb.d/
 # Run Entrypoint JS After init
 RUN mkdir -p /entrypoint.d
 COPY .config/entrypoint.d/* /entrypoint.d/
+
 # expose port
 EXPOSE 27017
 # Set the entrypoint

@@ -41,18 +41,21 @@ set_memory() {
   sed -i "s|{{QUERY_CACHE_SIZE}}|$QUERY_CACHE_SIZE|g" /etc/my.cnf
   sed -i "s|{{TMP_TABLE_SIZE}}|$TMP_TABLE_SIZE|g" /etc/my.cnf
 }
+
+checkMariaDBIsRunning(){
+  # Wait for MariaDB to start
+    until mariadb-admin ping >/dev/null 2>&1; do
+        echo "Waiting for MariaDB to start..."
+        sleep 2
+    done
+    echo "MariaDB Server Is Running..."
+}
 # Fungsi untuk memulai MariaDB
 initiate_mariadb() {
   echo "Starting MariaDB Temporary..."
   mariadbd-safe --defaults-file="${DEFAULT_CONFIG_PATH}" &
   pid="$!"
-
-  # Wait for MariaDB to start
-  until mariadb-admin ping >/dev/null 2>&1; do
-      echo "Waiting for MariaDB to start..."
-      sleep 2
-  done
-  echo "MariaDB Temporary Server Is Running..."
+  checkMariaDBIsRunning
 }
 set_users_and_grant() {
   mariadb -u root -e "DELETE FROM mysql.user WHERE (Host = 'localhost' AND User NOT IN ('root', 'mariadb.sys', 'mysql')) OR User = 'PUBLIC' OR Host = '$HOSTNAME'"
@@ -64,7 +67,7 @@ set_users_and_grant() {
   mariadb -u root -e "FLUSH PRIVILEGES"
 }
 
-load_sql_template() {
+load_init_sql_template() {
   # Mengeksekusi skrip SQL dari direktori /docker-entrypoint-initdb.d jika ada
   if [ -d "/docker-entrypoint-initdb.d" ]; then
       for sql_file in /docker-entrypoint-initdb.d/*.sql; do
@@ -74,6 +77,20 @@ load_sql_template() {
           fi
       done
   fi
+}
+
+load_automation_sql_template() {
+  echo "checking sql file script on /docker-entrypoint.d if exist"
+  # Mengeksekusi skrip SQL dari direktori /docker-entrypoint.d jika ada
+  if [ -d "/docker-entrypoint.d" ]; then
+      for sql_file in /docker-entrypoint.d/*.sql; do
+          if [ -f "$sql_file" ]; then
+              echo "Running script : $sql_file..."
+              mariadb < "$sql_file"
+          fi
+      done
+  fi
+  echo "task sql file automation is complete"
 }
 
 load_cron_scheduler(){
@@ -97,7 +114,7 @@ checkIsInitDB(){
       mariadb-install-db --defaults-file="${DEFAULT_CONFIG_PATH}" > /dev/null 2>&1
       echo "Database Successfully initiate..."
       initiate_mariadb
-      load_sql_template
+      load_init_sql_template
       set_users_and_grant
       echo "shutdown MariaDB Temporary..."
       mariadb-admin shutdown
@@ -107,6 +124,19 @@ checkIsInitDB(){
       set_memory
       echo "system MariaDB is initiate.., continue running server."
   fi
+}
+
+# Fungsi untuk memonitor MariaDB dan restart jika gagal
+watch_services() {
+  echo "started health monitoring process ..."
+  while true; do
+    # Memeriksa apakah mongod, cron berjalan
+    if ! pgrep mariadbd > /dev/null || ! pgrep cron > /dev/null; then
+      echo "one or more process stopped. exit container ..."
+      exit 1
+    fi
+    sleep 3
+  done
 }
 
 echo "checking init server..."
@@ -119,4 +149,7 @@ echo "Running Scheduler Cron"
 crond &
 # Memulai server MariaDB secara normal
 echo "Final Running mariadb..."
-mariadbd --defaults-file="${DEFAULT_CONFIG_PATH}"
+mariadbd --defaults-file="${DEFAULT_CONFIG_PATH}" &
+checkMariaDBIsRunning
+load_automation_sql_template
+watch_services
