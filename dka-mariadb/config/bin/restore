@@ -5,6 +5,8 @@ ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-root}
 BACKUP_DIR="/backup"
 
 # Get the list of up to 20 .sql.gz files sorted by modification time
+# shellcheck disable=SC2207
+# shellcheck disable=SC2012
 BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.sql.gz 2>/dev/null | head -n 50))
 
 # If no files are found, display a message and exit
@@ -42,7 +44,8 @@ SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE.sql.gz"
 echo "Restoring database from $SELECTED_BACKUP_PATH..."
 
 # Restore the selected backup file
-gunzip < "$SELECTED_BACKUP_PATH" | mariadb -u $DB_USER -p$ROOT_PASSWORD
+gunzip < "$SELECTED_BACKUP_PATH" | mariadb -u $DB_USER -p"$ROOT_PASSWORD"
+# shellcheck disable=SC2181
 if [ $? -eq 0 ]; then
     echo "Restore completed successfully."
 else

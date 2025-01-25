@@ -1,5 +1,5 @@
 REPOSITORY_NAME=yovanggaanandhika/node
-TAG_NAME=alpine-minimal
+TAG_NAME=latest
 
 default:
 	docker buildx build \
