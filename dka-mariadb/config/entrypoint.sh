@@ -19,9 +19,16 @@ set_memory() {
   # Cek jika nilai memory.max adalah "max" atau kosong
   # shellcheck disable=SC3014
   if [ "$MEMORY_MAX" == "max" ] || [ -z "$MEMORY_MAX" ]; then
-      echo "limit max memory not exist. fallback use host max memory"
-      MEMORY_MAX=$(free -b | grep Mem | awk '{print $2}')
+      echo "memory.max not exist. check with memory.limit_in_bytes ..."
+      MEMORY_MAX=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null)
+      # Jika memory.limit_in_bytes juga tidak ada, gunakan total memori host
+      if [ -z "$MEMORY_MAX" ]; then
+          echo "limit max memory not exist. fallback use host max memory"
+          MEMORY_MAX=$(free -b | grep Mem | awk '{print $2}')
+      fi
   fi
+
+
   # Mengalikan MEMORY_MAX dengan PERCENT_MEMORY menggunakan bc
   MEMORY_MAX=$(echo "$MEMORY_MAX * $PERCENT_MEMORY" | bc)
   # Membulatkan hasil ke bawah menjadi bilangan bulat
@@ -30,6 +37,7 @@ set_memory() {
   MEMORY_MAX_MB=$((MEMORY_MAX / 1024 / 1024))
   # Menambahkan akhiran 'M' untuk format MB
   MEMORY_MAX_MB="${MEMORY_MAX_MB}M"
+  echo "Limit memory is $MEMORY_MAX_MB. detected";
   # Menghitung QUERY_CACHE_SIZE sebagai 5% dari MEMORY_MAX
   QUERY_CACHE_SIZE_MB=$((MEMORY_MAX / 20 / 1024 / 1024))
   QUERY_CACHE_SIZE="${QUERY_CACHE_SIZE_MB}M"
@@ -58,13 +66,11 @@ initiate_mariadb() {
   checkMariaDBIsRunning
 }
 set_users_and_grant() {
-  mariadb -u root -e "DELETE FROM mysql.user WHERE (Host = 'localhost' AND User NOT IN ('root', 'mariadb.sys', 'mysql')) OR User = 'PUBLIC' OR Host = '$HOSTNAME'"
-  mariadb -u root -e "CREATE DATABASE IF NOT EXISTS $DB_NAME"
-  mariadb -u root -e "CREATE USER IF NOT EXISTS '$DB_USERNAME'@'%' IDENTIFIED BY '$DB_PASSWORD'"
-  mariadb -u root -e "GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USERNAME'@'%'"
-  mariadb -u root -e "CREATE USER 'root'@'%' IDENTIFIED BY '$ROOT_PASSWORD'"
-  mariadb -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION"
-  mariadb -u root -e "FLUSH PRIVILEGES"
+  #mariadb -u root -e "DELETE FROM mysql.user WHERE (Host = 'localhost' AND User NOT IN ('root', 'mariadb.sys', 'mysql')) OR User = 'PUBLIC' OR Host = '$HOSTNAME'"
+  sed -i "s|{{DB_USERNAME}}|$DB_USERNAME|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
+  sed -i "s|{{DB_NAME}}|$DB_NAME|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
+  sed -i "s|{{ROOT_PASSWORD}}|$ROOT_PASSWORD|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
+  sed -i "s|{{DB_PASSWORD}}|$DB_PASSWORD|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
 }
 
 load_init_sql_template() {
@@ -114,8 +120,8 @@ checkIsInitDB(){
       mariadb-install-db --defaults-file="${DEFAULT_CONFIG_PATH}" > /dev/null 2>&1
       echo "Database Successfully initiate..."
       initiate_mariadb
-      load_init_sql_template
       set_users_and_grant
+      load_init_sql_template
       echo "shutdown MariaDB Temporary..."
       mariadb-admin shutdown
       wait "$pid"

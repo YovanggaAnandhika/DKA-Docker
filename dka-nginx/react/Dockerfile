@@ -5,7 +5,7 @@ LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
 # Installing Base Dependencies
 #############################################################################
 # Update Repo
-RUN apk update && apk add --no-cache openssl nodejs npm bash nano iputils-ping tzdata certbot certbot-dns-cloudflare && npm install -g yarn
+RUN apk update && apk add --no-cache bash nano iputils-ping tzdata nginx
 RUN rm -rf /var/cache/apk/* && apk cache clean
 #############################################################################
 # End Base Dependencies
@@ -15,11 +15,15 @@ RUN adduser -S www-data -G www-data
 #############################################################################
 # Adding Config
 #############################################################################
-WORKDIR /home/app
+WORKDIR /var/www
 #############################################################################
 # End Adding Config
 #############################################################################
-RUN chown -R www-data:www-data /home/app && chmod -R 775 /home/app
+# Copy Nginx configuration file
+COPY .config/nginx /etc/nginx
+COPY .config/www /var/www
+#############################################################################
+RUN chown -R www-data:www-data /var/www && chmod -R 755 /var/www
 #############################################################################
 # Adding ENV Script
 #############################################################################
@@ -37,7 +41,7 @@ RUN chmod +x /usr/local/bin/*
 # End Entrypoint Script
 #############################################################################
 #----------------------------------------------------------------------------
-EXPOSE 80
+EXPOSE 80 443
 #----------------------------------------------------------------------------
 # Adding Entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
