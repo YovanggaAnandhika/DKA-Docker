@@ -1,5 +1,5 @@
 REPOSITORY_NAME=yovanggaanandhika/mongo
-TAG_NAME=latest
+TAG_NAME=10-slim-mongo-node-4.4
 
 default:
 	docker buildx build -t ${REPOSITORY_NAME}:${TAG_NAME} --load .

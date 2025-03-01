@@ -1,0 +1,8 @@
+/var/log/mongodb/mongod.log {
+    size 50M
+    rotate 3
+    compress
+    missingok
+    notifempty
+    create 0640 mongodb mongodb
+}

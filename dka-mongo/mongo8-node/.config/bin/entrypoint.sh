@@ -16,7 +16,7 @@ export DKA_REPL_NAME=${DKA_REPL_NAME:-rs0}
 watch_services() {
   while true; do
     # Memeriksa apakah mongod, cron berjalan
-    if ! pgrep mongod > /dev/null || ! pgrep cron > /dev/null; then
+    if ! pgrep mongod > /dev/null || ! pgrep cron > /dev/null || ! pgrep node > /dev/null; then
       echo "one or more process stopped. exit container ..."
       exit 1
     fi
@@ -53,6 +53,7 @@ running_init_file() {
       done
   fi
 }
+
 
 running_after_init_file() {
   if [ -d /entrypoint.d ]; then
@@ -137,18 +138,25 @@ start_mongo_without_replication(){
 }
 
 
+start_node(){
+  # If no arguments were passed, check if package.json exists
+  if [ -f "package.json" ]; then
+      echo "Memulai Default Entry point main di package.json"
+      node . &
+  else
+      # If package.json doesn't exist, wait for background processes
+      echo "package.json tidak ditemukan. Mulai Ulang Container dengan command. atau buat point di file package.json"
+      exec "$@"
+  fi
+}
 
-# Tunggu jika tidak ada argumen, atau eksekusi argumen jika ada
-if [ "$#" -gt 0 ]; then
-    # If arguments exist, execute them
-    exec "$@"
+# If no arguments were passed, start MongoDB
+if [ "$DKA_REPL_ENABLED" = "true" ]; then
+    start_mongo_with_replication
+    start_node
+    watch_services
 else
-    # If no arguments were passed, start MongoDB
-    if [ "$DKA_REPL_ENABLED" = "true" ]; then
-        start_mongo_with_replication
-        watch_services
-    else
-        start_mongo_without_replication
-        watch_services
-    fi
+    start_mongo_without_replication
+    start_node
+    watch_services
 fi

@@ -10,9 +10,11 @@ RUN apt-get update && apt-get install -y gnupg curl bash procps tzdata cron nano
 # Generate a keyfile for replica set authentication
 RUN openssl rand -base64 756 > /etc/mongo-keyfile && chmod 600 /etc/mongo-keyfile && chown mongodb:mongodb /etc/mongo-keyfile
 # Create Default dB Path
-RUN mkdir -p /data/db && chown mongodb:mongodb -R /data/db && mkdir -p /nonexistent && chown mongodb:mongodb -R /nonexistent
-# Create backup directory
-RUN mkdir -p /backup && chown -R mongodb:mongodb /backup
+RUN mkdir -p /data/db && chown mongodb:mongodb -R /data/db  \
+    && mkdir -p /nonexistent && chown mongodb:mongodb -R /nonexistent \
+    && mkdir -p /backup && chown -R mongodb:mongodb /backup \
+    && mkdir -p /home/app && chown -R www-data:www-data /home/app && chmod -R 775 /home/app \
+    && mkdir -p /entrypoint.d
 # Setting env
 ENV TZ=Asia/Makassar
 # Copy Default Mongo Conf
@@ -29,9 +31,9 @@ COPY .config/cron/* /usr/local/bin/
 RUN chmod +x /usr/local/bin/* && mkdir -p /docker-entrypoint-initdb.d
 COPY .config/docker.entrypoint.d/* /docker-entrypoint-initdb.d/
 # Run Entrypoint JS After init
-RUN mkdir -p /entrypoint.d
 COPY .config/entrypoint.d/* /entrypoint.d/
-
+# set Working Dir
+WORKDIR /home/app
 # expose port
 EXPOSE 27017
 # Set the entrypoint

@@ -105,6 +105,40 @@ start_log_rotate(){
   echo "rotate log started ..."
 }
 
+start_mongo_with_replication(){
+  start_log_rotate
+  export_cron_file
+  # Start cron in the background
+  echo "Starting crontab scheduler ..."
+  cron &
+  echo "mongo engine starting ..."
+  exec mongod --config /etc/mongod.conf --replSet "$DKA_REPL_NAME" &
+  echo "mongo engine started"
+  wait_mongo_start
+  running_after_init_file
+  echo "show system log ..."
+  tail -f /var/log/mongodb/mongod.log &
+  echo "starting monitoring service health check"
+}
+
+start_mongo_without_replication(){
+  start_log_rotate
+  export_cron_file
+  # Start cron in the background
+  echo "Starting crontab scheduler..."
+  cron &
+  echo "mongo engine starting ..."
+  exec mongod --config /etc/mongod.conf &
+  echo "mongo engine started"
+  wait_mongo_start
+  running_after_init_file
+  echo "show system log ..."
+  tail -f /var/log/mongodb/mongod.log &
+  echo "starting monitoring service health check"
+}
+
+
+
 # Tunggu jika tidak ada argumen, atau eksekusi argumen jika ada
 if [ "$#" -gt 0 ]; then
     # If arguments exist, execute them
@@ -112,34 +146,10 @@ if [ "$#" -gt 0 ]; then
 else
     # If no arguments were passed, start MongoDB
     if [ "$DKA_REPL_ENABLED" = "true" ]; then
-        start_log_rotate
-        export_cron_file
-        # Start cron in the background
-        echo "Starting crontab scheduler ..."
-        cron &
-        echo "mongo engine starting ..."
-        exec mongod --config /etc/mongod.conf --replSet "$DKA_REPL_NAME" &
-        echo "mongo engine started"
-        wait_mongo_start
-        running_after_init_file
-        echo "show system log ..."
-        tail -f /var/log/mongodb/mongod.log &
-        echo "starting monitoring service health check"
+        start_mongo_with_replication
         watch_services
     else
-        start_log_rotate
-        export_cron_file
-        # Start cron in the background
-        echo "Starting crontab scheduler..."
-        cron &
-        echo "mongo engine starting ..."
-        exec mongod --config /etc/mongod.conf &
-        echo "mongo engine started"
-        wait_mongo_start
-        running_after_init_file
-        echo "show system log ..."
-        tail -f /var/log/mongodb/mongod.log &
-        echo "starting monitoring service health check"
+        start_mongo_without_replication
         watch_services
     fi
 fi

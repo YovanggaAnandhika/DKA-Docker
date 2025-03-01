@@ -1,11 +1,12 @@
-FROM debian:10-slim
+FROM debian:12-slim
 # Maintainer
 LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
 # Install dependencies in a single RUN command and clean up afterward
 RUN apt-get update && apt-get install -y gnupg curl bash procps tzdata cron nano logrotate \
-    && curl -fsSL https://www.mongodb.org/static/pgp/server-4.4.asc | gpg -o /usr/share/keyrings/mongodb-server-4.4.gpg --dearmor && \
-    echo "deb [signed-by=/usr/share/keyrings/mongodb-server-4.4.gpg] http://repo.mongodb.org/apt/debian buster/mongodb-org/4.4 main" | tee /etc/apt/sources.list.d/mongodb-org-4.4.list  \
-    && apt-get update && apt-get install -y --no-install-recommends mongodb-org=4.4.18 mongodb-org-shell=4.4.18 mongodb-org-tools=4.4.18 mongodb-mongosh mongodb-org-mongos \
+    && apt-get install -y openssl nodejs npm iputils-ping certbot python3-certbot-dns-cloudflare && npm install -g yarn \
+    && curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor && \
+    echo "deb [signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" | tee /etc/apt/sources.list.d/mongodb-org-8.0.list  \
+    && apt-get update && apt-get install -y --no-install-recommends mongodb-org mongodb-org-shell mongodb-org-tools mongodb-mongosh mongodb-org-mongos mongodb-org-database  \
     && rm -rf /var/lib/apt/lists/* && apt-get clean && rm -rf /tmp/* /var/tmp/*
 # Generate a keyfile for replica set authentication
 RUN openssl rand -base64 756 > /etc/mongo-keyfile && chmod 600 /etc/mongo-keyfile && chown mongodb:mongodb /etc/mongo-keyfile
@@ -32,10 +33,10 @@ RUN chmod +x /usr/local/bin/* && mkdir -p /docker-entrypoint-initdb.d
 COPY .config/docker.entrypoint.d/* /docker-entrypoint-initdb.d/
 # Run Entrypoint JS After init
 COPY .config/entrypoint.d/* /entrypoint.d/
-# set Working Dir
+# Set Working Dir
 WORKDIR /home/app
 # expose port
-EXPOSE 27017
+EXPOSE 27017 80
 # Set the entrypoint
 ENTRYPOINT ["entrypoint.sh"]
 
