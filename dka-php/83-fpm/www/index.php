@@ -1,2 +1,4 @@
+// root/index.php
 <?php
-phpinfo();
+// Arahkan semua permintaan ke public/index.php
+require __DIR__ . '/public/index.php';

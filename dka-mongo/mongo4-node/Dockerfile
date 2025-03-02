@@ -3,7 +3,9 @@ FROM debian:10-slim
 LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
 # Install dependencies in a single RUN command and clean up afterward
 RUN apt-get update && apt-get install -y gnupg curl bash procps tzdata cron nano logrotate \
-    && apt-get install -y openssl nodejs npm iputils-ping certbot python3-certbot-dns-cloudflare && npm install -g yarn \
+    && curl -fsSL https://deb.nodesource.com/setup_current.x | bash - && apt-get install -y nodejs \
+    && apt-get install -y openssl iputils-ping certbot python3-certbot-dns-cloudflare \
+    && npm install -g yarn \
     && curl -fsSL https://www.mongodb.org/static/pgp/server-4.4.asc | gpg -o /usr/share/keyrings/mongodb-server-4.4.gpg --dearmor && \
     echo "deb [signed-by=/usr/share/keyrings/mongodb-server-4.4.gpg] http://repo.mongodb.org/apt/debian buster/mongodb-org/4.4 main" | tee /etc/apt/sources.list.d/mongodb-org-4.4.list  \
     && apt-get update && apt-get install -y --no-install-recommends mongodb-org=4.4.18 mongodb-org-shell=4.4.18 mongodb-org-tools=4.4.18 mongodb-mongosh mongodb-org-mongos \
