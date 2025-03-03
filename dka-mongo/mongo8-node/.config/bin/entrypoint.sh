@@ -139,14 +139,19 @@ start_mongo_without_replication(){
 
 
 start_node(){
-  # If no arguments were passed, check if package.json exists
-  if [ -f "package.json" ]; then
-      echo "Memulai Default Entry point main di package.json"
-      node . &
-  else
-      # If package.json doesn't exist, wait for background processes
-      echo "package.json tidak ditemukan. Mulai Ulang Container dengan command. atau buat point di file package.json"
+  if [ "$#" -gt 0 ]; then
+      # If arguments exist, execute them
+      echo "Memulai Default Entry point main dengan arguments"
       exec "$@"
+  else
+     # If no arguments were passed, check if package.json exists
+      if [ -f "package.json" ]; then
+          echo "Memulai Default Entry point main di package.json"
+          node . &
+      else
+          # If package.json doesn't exist, wait for background processes
+          echo "package.json tidak ditemukan. Mulai Ulang Container dengan command. atau buat point di file package.json"
+      fi
   fi
 }
 
