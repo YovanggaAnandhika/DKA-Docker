@@ -1,0 +1,54 @@
+services:
+  app:
+    image: yovanggaanandhika/php:latest
+    container_name: app
+    hostname: app
+    restart: always
+    working_dir: /var/www
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.80"
+          memory: 128M
+    volumes:
+      - type: bind
+        source: .
+        target: /var/www
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        host_ip: 0.0.0.0
+    networks:
+      - default
+
+  mariadb:
+    image: mariadb:latest
+    container_name: mariadb
+    hostname: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456789
+      MYSQL_DATABASE: example_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: 123456789
+    ports:
+      - target: 3306
+        published: 3306
+        protocol: tcp
+        host_ip: 0.0.0.0
+    restart: always
+    volumes:
+      - type: volume
+        source: mariadb_data
+        target: /var/lib/mysql
+
+
+volumes:
+  mariadb_data:
+    driver: local
+networks:
+  default:
+    driver: bridge

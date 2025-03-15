@@ -1,0 +1,50 @@
+name: dka-dev
+
+
+services:
+  mongo:
+    image: yovanggaanandhika/mongo:12-slim-mongo-8.0.5
+    container_name: dka-dev-mongo
+    hostname: dka-dev-mongo
+    restart: always
+    environment:
+      DKA_MONGO_PASSWORD: 123456789
+      DKA_REPL_ENABLED: true
+    ports:
+      - target: 27017
+        published: 27017
+        protocol: tcp
+        host_ip: 0.0.0.0
+    volumes:
+      - type: volume
+        source: data
+        target: /data/db
+      - type: volume
+        source: backup
+        target: /backup
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+          cpus: '1.0'
+        reservations:
+          memory: 250M
+          cpus: '0.8'
+    networks:
+      - default
+
+volumes:
+  data:
+    name : dka-dev-mongo-data
+    external: true
+
+  backup:
+    name: dka-dev-mongo-backup
+    external: true
+
+networks:
+  default:
+    name: dka-dev
+    external: true
+
+
