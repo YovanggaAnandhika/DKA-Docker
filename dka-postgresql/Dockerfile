@@ -14,15 +14,13 @@ RUN mkdir -p /var/log/postgresql && chown postgres:postgres /var/log/postgresql 
     mkdir /backup && chown postgres:postgres /backup && chmod -R 755 /backup && \
     mkdir -p /var/lib/postgresql/data && chown -R postgres:postgres /var/lib/postgresql && \
     mkdir -p /run/postgresql && chown postgres:postgres /run/postgresql
-# Add cron dir
-COPY config/cron.d /usr/cron.d/
-RUN chmod +x /usr/cron.d/*
 # add Another Script
 COPY config/bin /usr/local/bin/
 # Copy initialization script
 COPY config/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/*
 COPY config/docker-entrypoint-initdb.d /docker-entrypoint-initdb.d
+RUN chown postgres:postgres /docker-entrypoint-initdb.d
 # Create Automation SQL
 COPY config/docker-entrypoint.d /docker-entrypoint.d
 RUN chown postgres:postgres /docker-entrypoint.d

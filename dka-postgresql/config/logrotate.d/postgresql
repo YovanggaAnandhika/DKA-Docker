@@ -1,4 +1,4 @@
-/var/lib/mysql/*.err {
+/var/lib/postgresql/*.err {
     daily
     rotate 7
     compress
@@ -14,7 +14,7 @@
     compressoptions -czf
 }
 
-/var/log/mysql/*.log {
+/var/log/postgresql/*.log {
     hourly
     rotate 7
     compress

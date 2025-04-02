@@ -87,10 +87,10 @@ initiate_postgresql() {
 
 set_users_and_grant() {
   # Mengatur user dan grant
-  psql -U postgres -c "ALTER USER postgres WITH ENCRYPTED PASSWORD '$ROOT_PASSWORD';"
-  psql -U postgres -c "CREATE USER $DB_USERNAME WITH ENCRYPTED PASSWORD '$DB_PASSWORD';"
-  psql -U postgres -c "CREATE DATABASE $DB_NAME;"
-  psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USERNAME;"
+  sed -i "s|{{DB_USERNAME}}|$DB_USERNAME|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
+  sed -i "s|{{DB_NAME}}|$DB_NAME|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
+  sed -i "s|{{ROOT_PASSWORD}}|$ROOT_PASSWORD|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
+  sed -i "s|{{DB_PASSWORD}}|$DB_PASSWORD|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
 }
 
 load_init_sql_template() {
@@ -99,7 +99,7 @@ load_init_sql_template() {
       for sql_file in /docker-entrypoint-initdb.d/*.sql; do
           if [ -f "$sql_file" ]; then
               echo "Running script : $sql_file..."
-              psql -U postgres -f "$sql_file"
+              psql -U postgres -f "$sql_file" >/dev/null 2>&1;
           fi
       done
   fi
@@ -112,29 +112,16 @@ load_automation_sql_template() {
       for sql_file in /docker-entrypoint.d/*.sql; do
           if [ -f "$sql_file" ]; then
               echo "Running script : $sql_file..."
-              psql -U postgres -f "$sql_file"
+              psql -U postgres -w "$ROOT_PASSWORD" -f "$sql_file"
           fi
       done
   fi
   echo "task sql file automation is complete"
 }
 
-load_cron_scheduler(){
-  # Menjalankan cron jika diaktifkan
-  if [ "$ENABLED_CRON" = "true" ]; then
-    for file in /usr/cron.d/*; do
-      if [ -x "$file" ]; then
-        cron_name=$(basename "$file")
-        # Menambahkan log output ke file log
-        echo "$CRON_PRIODIC /bin/bash $file >> /var/log/postgresql/cron.log 2>&1" > "/etc/cron.d/$cron_name"
-      fi
-    done
-  fi
-}
-
 checkIsInitDB(){
   # Memeriksa apakah database sudah ada
-  if [ ! -d "/var/lib/postgresql/data/PG_VERSION" ]; then
+  if [ ! -f "/var/lib/postgresql/data/DKA_POSTGRESQL_INIT" ]; then
       echo "first Run. initiate system server..."
       pg_ctl init -D /var/lib/postgresql/data
       echo "Database Successfully initiate..."
@@ -147,6 +134,7 @@ checkIsInitDB(){
       echo "PostgreSQL successfully stopped."
       set_memory
       set_hba
+      touch "/var/lib/postgresql/data/DKA_POSTGRESQL_INIT"
   else
       echo "system PostgreSQL is initiate.., continue running server."
   fi
@@ -167,12 +155,8 @@ watch_services() {
 
 echo "checking init server..."
 checkIsInitDB
-echo "load cron scheduler..."
-load_cron_scheduler
 echo "Running Logrotate..."
 logrotate -f /etc/logrotate.conf >/dev/null 2>&1;
-echo "Running Scheduler Cron"
-crond &
 # Memulai server PostgreSQL secara normal
 echo "Final Running PostgreSQL..."
 pg_ctl start -D /var/lib/postgresql/data &
