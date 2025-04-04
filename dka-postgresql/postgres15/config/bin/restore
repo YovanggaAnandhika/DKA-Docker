@@ -1,0 +1,45 @@
+#!/bin/bash
+# Set database credentials
+DB_USER="postgres"
+ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-root}
+BACKUP_DIR="/backup"
+# Get the list of up to 50 .sql.gz files sorted by modification time
+# shellcheck disable=SC2207
+# shellcheck disable=SC2012
+BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.sql.gz 2>/dev/null | head -n 50))
+# If no files are found, display a message and exit
+if [ ${#BACKUP_FILES[@]} -eq 0 ]; then
+    echo "No backup files available."
+    exit 1
+fi
+echo "Available backup files (showing up to 50 most recent backups):"
+PS3="Select a backup file to restore: "
+# Build the menu options (name + size)
+MENU_OPTIONS=()
+for file in "${BACKUP_FILES[@]}"; do
+    FILE_SIZE=$(du -h "$file" | awk '{print $1}')
+    MENU_OPTIONS+=("$(basename "$file" .sql.gz) ($FILE_SIZE)")
+done
+# Display menu for selecting a file
+select CHOICE in "${MENU_OPTIONS[@]}"; do
+    # Get the selected file name without the size
+    SELECTED_FILE=$(echo "$CHOICE" | awk -F' ' '{print $1}')
+    # Check if the user made a valid selection
+    if [ -z "$SELECTED_FILE" ]; then
+        echo "Invalid selection, please choose a file."
+    else
+        echo "Selected backup file: $SELECTED_FILE"
+        break
+    fi
+done
+# Get the full path of the selected backup file
+SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE.sql.gz"
+echo "Restoring database from $SELECTED_BACKUP_PATH..."
+# Restore the selected backup file (this assumes the backup contains the necessary commands to restore)
+gunzip < "$SELECTED_BACKUP_PATH" | PGPASSWORD=$ROOT_PASSWORD psql -U $DB_USER
+# shellcheck disable=SC2181
+if [ $? -eq 0 ]; then
+    echo "Restore completed successfully."
+else
+    echo "Restore failed."
+fi

@@ -153,7 +153,17 @@ watch_services() {
   done
 }
 
+# Periksa dan hapus postmaster.pid jika ada sebelum memulai PostgreSQL
+clear_postmaster_pid() {
+  POSTMASTER_PID_FILE="/var/lib/postgresql/data/postmaster.pid"
+  if [ -f "$POSTMASTER_PID_FILE" ]; then
+    echo "Removing existing postmaster.pid file..."
+    rm -f "$POSTMASTER_PID_FILE"
+  fi
+}
+
 echo "checking init server..."
+clear_postmaster_pid  # Tambahkan pemanggilan fungsi di awal
 checkIsInitDB
 echo "Running Logrotate..."
 logrotate -f /etc/logrotate.conf >/dev/null 2>&1;

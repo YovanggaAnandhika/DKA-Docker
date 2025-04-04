@@ -1,0 +1,41 @@
+name: dka-database-postgresql
+
+services:
+
+  postgresql:
+    image: yovanggaanandhika/postgresql:latest
+    container_name: dka-database-postgresql
+    hostname: dka-database-postgresql
+    restart: always
+    ports:
+      - target: 5432
+        published: 5432
+        protocol: tcp
+        host_ip: 0.0.0.0
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 500M
+          cpus: '0.8'
+    volumes:
+      - type: volume
+        source: data
+        target: /var/lib/postgresql
+      - type: volume
+        source: backup
+        target: /backup
+    networks:
+      - default
+
+volumes:
+  data:
+    driver: local
+  backup:
+    driver: local
+
+networks:
+  default:
+    driver: bridge

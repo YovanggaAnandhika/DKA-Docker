@@ -3,9 +3,10 @@ name: dka-database-postgresql
 services:
 
   postgresql:
-    image: local/postgresql
+    image: yovanggaanandhika/postgresql:latest
     container_name: dka-database-postgresql
     hostname: dka-database-postgresql
+    restart: always
     ports:
       - target: 5432
         published: 5432
