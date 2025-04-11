@@ -14,7 +14,8 @@ mkdir -p $BACKUP_DIR
 echo "Backing up all databases..."
 
 # Create a backup of all databases and compress it into a .sql.gz file using mariadb tools
-mariadb-dump -u $DB_USER -p"$ROOT_PASSWORD" --all-databases --add-drop-table --routines --triggers --events --verbose --force | gzip -9 > "$BACKUP_FILE"
+ESCAPED_ROOT_PASSWORD=$(printf '%s' "$ROOT_PASSWORD" | sed 's/[&/]/\\&/g')
+mariadb-dump -u $DB_USER -p"$ESCAPED_ROOT_PASSWORD" --all-databases --add-drop-table --routines --triggers --events --verbose --force | gzip -9 > "$BACKUP_FILE"
 
 if [ $? -eq 0 ]; then
     echo "Backup completed successfully: $BACKUP_FILE"

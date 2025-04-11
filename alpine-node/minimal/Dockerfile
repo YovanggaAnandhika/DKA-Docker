@@ -1,9 +1,7 @@
 FROM alpine:3.21
 # Maintainer
 LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
-#############################################################################
-# Installing Base Dependencies
-#############################################################################
+
 # Update Repo
 RUN apk update && apk add --no-cache openssl nodejs npm bash nano iputils-ping tzdata certbot certbot-dns-cloudflare && npm install -g yarn
 RUN rm -rf /var/cache/apk/* && apk cache clean

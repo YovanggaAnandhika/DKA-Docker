@@ -1,6 +1,6 @@
 services:
   app:
-    image: yovanggaanandhika/php:latest
+    image: yovanggaanandhika/php:8.3-fpm-laravel
     container_name: app
     hostname: app
     restart: always

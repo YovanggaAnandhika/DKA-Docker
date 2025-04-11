@@ -66,12 +66,12 @@ initiate_mariadb() {
   checkMariaDBIsRunning
 }
 set_users_and_grant() {
-  #mariadb -u root -e "DELETE FROM mysql.user WHERE (Host = 'localhost' AND User NOT IN ('root', 'mariadb.sys', 'mysql')) OR User = 'PUBLIC' OR Host = '$HOSTNAME'"
-  sed -i "s|{{DB_USERNAME}}|$DB_USERNAME|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
-  sed -i "s|{{DB_NAME}}|$DB_NAME|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
-  sed -i "s|{{ROOT_PASSWORD}}|$ROOT_PASSWORD|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
-  sed -i "s|{{DB_PASSWORD}}|$DB_PASSWORD|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
+  sed -i "s|{{DB_USERNAME}}|$(printf '%s' "$DB_USERNAME" | sed 's/[&/]/\\&/g')|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
+  sed -i "s|{{DB_NAME}}|$(printf '%s' "$DB_NAME" | sed 's/[&/]/\\&/g')|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
+  sed -i "s|{{ROOT_PASSWORD}}|$(printf '%s' "$ROOT_PASSWORD" | sed 's/[&/]/\\&/g')|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
+  sed -i "s|{{DB_PASSWORD}}|$(printf '%s' "$DB_PASSWORD" | sed 's/[&/]/\\&/g')|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
 }
+
 
 load_init_sql_template() {
   # Mengeksekusi skrip SQL dari direktori /docker-entrypoint-initdb.d jika ada

@@ -43,8 +43,9 @@ done
 SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE.sql.gz"
 echo "Restoring database from $SELECTED_BACKUP_PATH..."
 
+ESCAPED_ROOT_PASSWORD=$(printf '%s' "$ROOT_PASSWORD" | sed 's/[&/]/\\&/g')
 # Restore the selected backup file
-gunzip < "$SELECTED_BACKUP_PATH" | mariadb -u $DB_USER -p"$ROOT_PASSWORD"
+gunzip < "$SELECTED_BACKUP_PATH" | mariadb -u $DB_USER -p"$ESCAPED_ROOT_PASSWORD"
 # shellcheck disable=SC2181
 if [ $? -eq 0 ]; then
     echo "Restore completed successfully."
