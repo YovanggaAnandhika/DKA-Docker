@@ -2,6 +2,7 @@
 
 HOSTNAME=$(hostname)
 DEFAULT_CONFIG_PATH=${DKA_CONFIG_PATH:-/etc/my.cnf}
+INIT_CONFIG_PATH=${DKA_CONFIG_PATH:-/etc/init.cnf}
 # Cron Env
 ENABLED_CRON=${DKA_CRON_ENABLE:-false}
 CRON_PRIODIC=${DKA_CRON_PRIODIC:-0 3 * * *}
@@ -48,6 +49,10 @@ set_memory() {
   sed -i "s|{{INNODB_BUFFER_POOL_SIZE}}|$MEMORY_MAX_MB|g" /etc/my.cnf
   sed -i "s|{{QUERY_CACHE_SIZE}}|$QUERY_CACHE_SIZE|g" /etc/my.cnf
   sed -i "s|{{TMP_TABLE_SIZE}}|$TMP_TABLE_SIZE|g" /etc/my.cnf
+  #------------------------------------------
+  sed -i "s|{{INNODB_BUFFER_POOL_SIZE}}|$MEMORY_MAX_MB|g" /etc/init.cnf
+  sed -i "s|{{QUERY_CACHE_SIZE}}|$QUERY_CACHE_SIZE|g" /etc/init.cnf
+  sed -i "s|{{TMP_TABLE_SIZE}}|$TMP_TABLE_SIZE|g" /etc/init.cnf
 }
 
 checkMariaDBIsRunning(){
@@ -60,11 +65,12 @@ checkMariaDBIsRunning(){
 }
 # Fungsi untuk memulai MariaDB
 initiate_mariadb() {
-  echo "Starting MariaDB Temporary..."
-  mariadbd-safe --defaults-file="${DEFAULT_CONFIG_PATH}" &
+  echo "Starting MariaDB (safe) Temporary..."
+  mariadbd-safe --defaults-file="${INIT_CONFIG_PATH}" &
   pid="$!"
   checkMariaDBIsRunning
 }
+
 set_users_and_grant() {
   sed -i "s|{{DB_USERNAME}}|$(printf '%s' "$DB_USERNAME" | sed 's/[&/]/\\&/g')|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
   sed -i "s|{{DB_NAME}}|$(printf '%s' "$DB_NAME" | sed 's/[&/]/\\&/g')|g" /docker-entrypoint-initdb.d/create_users_and_grants.sql
@@ -117,7 +123,7 @@ checkIsInitDB(){
   if [ ! -d "/var/lib/mysql/mysql" ]; then
       set_memory
       echo "first Run. initiate system server..."
-      mariadb-install-db --defaults-file="${DEFAULT_CONFIG_PATH}" > /dev/null 2>&1
+      mariadb-install-db --defaults-file="${INIT_CONFIG_PATH}" > /dev/null 2>&1
       echo "Database Successfully initiate..."
       initiate_mariadb
       set_users_and_grant

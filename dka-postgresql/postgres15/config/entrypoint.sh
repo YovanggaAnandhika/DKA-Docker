@@ -160,6 +160,12 @@ clear_postmaster_pid() {
     echo "Removing existing postmaster.pid file..."
     rm -f "$POSTMASTER_PID_FILE"
   fi
+
+  SOCKET_LOCK_FILE="/run/postgresql/.s.PGSQL.5432.lock"
+    if [ -f "$SOCKET_LOCK_FILE" ]; then
+      echo "Removing existing socket lock file..."
+      rm -f "$SOCKET_LOCK_FILE"
+    fi
 }
 
 echo "checking init server..."

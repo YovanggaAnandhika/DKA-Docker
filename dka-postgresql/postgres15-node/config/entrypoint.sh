@@ -145,7 +145,7 @@ watch_services() {
   echo "started health monitoring process ..."
   while true; do
     # Memeriksa apakah postgresql dan cron berjalan
-    if ! pgrep postgres > /dev/null; then
+    if ! pgrep postgres > /dev/null || ! pgrep node > /dev/null; then
       echo "one or more process stopped. exit container ..."
       exit 1
     fi
@@ -160,6 +160,28 @@ clear_postmaster_pid() {
     echo "Removing existing postmaster.pid file..."
     rm -f "$POSTMASTER_PID_FILE"
   fi
+  SOCKET_LOCK_FILE="/run/postgresql/.s.PGSQL.5432.lock"
+  if [ -f "$SOCKET_LOCK_FILE" ]; then
+    echo "Removing existing socket lock file..."
+    rm -f "$SOCKET_LOCK_FILE"
+  fi
+}
+
+start_node(){
+  if [ "$#" -gt 0 ]; then
+      # If arguments exist, execute them
+      echo "Memulai Default Entry point main dengan arguments"
+      exec "$@"
+  else
+     # If no arguments were passed, check if package.json exists
+      if [ -f "package.json" ]; then
+          echo "Memulai Default Entry point main di package.json"
+          node . &
+      else
+          # If package.json doesn't exist, wait for background processes
+          echo "package.json tidak ditemukan. Mulai Ulang Container dengan command. atau buat point di file package.json"
+      fi
+  fi
 }
 
 echo "checking init server..."
@@ -172,4 +194,5 @@ echo "Final Running PostgreSQL..."
 pg_ctl start -D /var/lib/postgresql/data &
 checkPostgreSQLIsRunning
 load_automation_sql_template
+start_node
 watch_services

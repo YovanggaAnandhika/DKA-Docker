@@ -1,6 +1,13 @@
 FROM debian:10-slim
-# Maintainer
 LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
+LABEL org.opencontainers.image.title="Base Mongo"
+LABEL org.opencontainers.image.description="Base Mongo"
+LABEL org.opencontainers.image.version="0.0.1"
+LABEL org.opencontainers.image.url="https://hub.docker.com/r/yovanggaanandhika/mongo"
+LABEL org.opencontainers.image.source="https://hub.docker.com/r/yovanggaanandhika/mongo"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.authors="Yovangga Anandhika <dka.tech.dev@gmail.com>"
+LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 # Install dependencies in a single RUN command and clean up afterward
 RUN apt-get update && apt-get install -y gnupg curl bash procps tzdata cron nano logrotate \
     && curl -fsSL https://www.mongodb.org/static/pgp/server-4.4.asc | gpg -o /usr/share/keyrings/mongodb-server-4.4.gpg --dearmor && \

@@ -1,6 +1,15 @@
 FROM debian:10-slim
 # Maintainer
+# Maintainer
 LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
+LABEL org.opencontainers.image.title="Base Mongo With Nodejs & Mongo"
+LABEL org.opencontainers.image.description="Base Mongo With Nodejs & Mongo"
+LABEL org.opencontainers.image.version="0.0.1"
+LABEL org.opencontainers.image.url="https://hub.docker.com/r/yovanggaanandhika/mongo"
+LABEL org.opencontainers.image.source="https://hub.docker.com/r/yovanggaanandhika/mongo"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.authors="Yovangga Anandhika <dka.tech.dev@gmail.com>"
+LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 # Install dependencies in a single RUN command and clean up afterward
 RUN apt-get update && apt-get install -y gnupg curl bash procps tzdata cron nano logrotate \
     && curl -fsSL https://deb.nodesource.com/setup_current.x | bash - && apt-get install -y nodejs \

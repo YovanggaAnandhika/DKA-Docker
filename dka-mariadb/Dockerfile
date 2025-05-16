@@ -9,6 +9,7 @@ RUN apk update && apk add --no-cache cgroup-tools tzdata htop nano dcron logrota
 ENV TZ=Asia/Makassar
 # Copy Mariadb configuration file
 COPY config/mysql/my.cnf /etc/my.cnf
+COPY config/mysql/init.cnf /etc/init.cnf
 # Copy existing log rotate config
 COPY config/logrotate.d /etc/logrotate.d/
 # Add Log System

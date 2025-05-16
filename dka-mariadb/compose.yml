@@ -1,35 +1,11 @@
 name: dka-database
 
 services:
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: dka-database-phpmyadmin
-    hostname: dka-database-phpmyadmin
-    restart: always
-    environment:
-      PMA_HOST: dka-database-mariadb
-    ports:
-      - target: 80
-        published: 8080
-        protocol: tcp
-        host_ip: 0.0.0.0
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1.0'
-        reservations:
-          memory: 500M
-          cpus: '0.8'
-    networks:
-      - default
-
   mariadb:
     image: yovanggaanandhika/mariadb:latest
     container_name: dka-database-mariadb
     hostname: dka-database-mariadb
     restart: always
-    mem_limit: 1M
     environment:
       DKA_ROOT_PASSWORD: Cyberhack2010
       DKA_DB_NAME: dka

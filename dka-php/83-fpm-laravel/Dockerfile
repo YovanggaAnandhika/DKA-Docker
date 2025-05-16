@@ -18,8 +18,6 @@ ENV TZ=Asia/Makassar
 RUN adduser -S www-data -G www-data
 # Create the application directory
 RUN mkdir -p /var/www && mkdir -p /var/run/php
-# Copy Example Root apps
-COPY www /var/www
 # Copy Nginx configuration file
 COPY .config/nginx /etc/nginx
 # Copy PHP-FPM configuration file
@@ -28,10 +26,16 @@ COPY .config/php /etc/php83
 COPY .config/log /var/log/
 # Set permissions
 RUN chown -R www-data:www-data /var/www && find /var/www -type d -exec chmod 774 {} \; && find /var/www -type f -exec chmod 774 {} \;
+# hapus folder bawaan nginx
+RUN rm -rf /var/www/localhost
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer
 # Set the working directory
 WORKDIR /var/www
+# Install Laravel On Global
+RUN composer create-project laravel/laravel .
+# set permission laravel storage
+RUN chown -R www-data:www-data storage database bootstrap/cache && chmod -R 775 storage database bootstrap/cache
 # Configure entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 # set Execution bin dir
@@ -40,4 +44,3 @@ RUN chmod +x /usr/local/bin/*
 EXPOSE 80 443
 # Set the entrypoint to the script
 ENTRYPOINT ["entrypoint.sh"]
-
