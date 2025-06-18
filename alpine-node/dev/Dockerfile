@@ -12,7 +12,10 @@ LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 
 ARG TARGETARCH
 # Update Repo
-RUN apk update && apk add --no-cache openssl nodejs npm bash nano iputils-ping tzdata curl protobuf-dev openresolv jq && npm install -g yarn
+RUN apk update && apk add --no-cache openssl nodejs npm bash nano iputils-ping tzdata certbot certbot-dns-cloudflare curl protobuf-dev openresolv jq && npm install -g yarn
+# Install cloudflared binary sesuai arsitektur
+RUN curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$TARGETARCH" -o /usr/local/bin/cloudflared  \
+    && chmod +x /usr/local/bin/cloudflared
 # remove cache and apt cleancertbot certbot-dns-cloudflare
 RUN rm -rf /var/cache/apk/* && apk cache clean
 #############################################################################
@@ -23,7 +26,7 @@ RUN adduser -S www-data -G www-data
 #############################################################################
 # Adding Directory
 #############################################################################
-
+RUN mkdir /root/.cloudflared && chmod -R 775 /root/.cloudflared
 #############################################################################
 # Adding Config
 #############################################################################
