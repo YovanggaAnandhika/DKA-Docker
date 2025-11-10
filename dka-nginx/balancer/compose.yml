@@ -1,0 +1,32 @@
+name: dka-nginx-balancer
+
+services:
+  nginx:
+    build:
+      context: .
+    container_name: dka-nginx-balancer-app
+    hostname: dka-nginx-balancer-app
+    restart: always
+    environment:
+      APP_SERVICE_HOST: dka-product-pos-server-app
+      APP_SERVICE_PORT: 80
+    ports:
+      - target: 443
+        published: 8083
+        protocol: tcp
+        host_ip: 0.0.0.0
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 500M
+          cpus: '0.8'
+    networks:
+      - dka-development-network
+
+networks:
+  dka-development-network:
+    name: dka-development-network
+    external: true

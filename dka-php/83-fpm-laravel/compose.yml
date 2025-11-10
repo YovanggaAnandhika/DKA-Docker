@@ -4,6 +4,7 @@ services:
     container_name: app
     hostname: app
     restart: always
+    pull_policy: always
     working_dir: /var/www
     environment:
       APP_NAME: DKA

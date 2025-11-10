@@ -1,15 +1,17 @@
-FROM alpine:3.21
+FROM alpine:3.22
+# Maintainer
+LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
 #############################################################################
 # Installing Base Dependencies
 #############################################################################
 # Update Repo
-RUN apk update && apk add --no-cache libressl libressl-dev libpcap curl nano bash openssl nodejs npm bash iputils-ping tzdata  \
-    freeradius freeradius-utils freeradius-mysql freeradius-rest freeradius-radclient freeradius-sqlite && npm install -g yarn
+RUN apk update && apk add --no-cache bash nano iputils-ping tzdata nginx gettext
 RUN rm -rf /var/cache/apk/* && apk cache clean
 #############################################################################
 # End Base Dependencies
 #############################################################################
 #----------------------------------------------------------------------------
+RUN adduser -S www-data -G www-data
 #############################################################################
 # Adding Config
 #############################################################################
@@ -17,7 +19,12 @@ WORKDIR /var/www
 #############################################################################
 # End Adding Config
 #############################################################################
-COPY .config/raddb /etc/raddb/
+# Copy Nginx configuration file
+COPY .config/nginx /etc/nginx
+COPY .config/cert /etc/cert
+COPY .config/www /var/www
+#############################################################################
+RUN chown -R www-data:www-data /var/www && chmod -R 755 /var/www
 #############################################################################
 # Adding ENV Script
 #############################################################################
@@ -35,10 +42,10 @@ RUN chmod +x /usr/local/bin/*
 # End Entrypoint Script
 #############################################################################
 #----------------------------------------------------------------------------
-#EXPOSE 80 443 1812 1813
+EXPOSE 80 443
 #----------------------------------------------------------------------------
 # Adding Entrypoint
-ENTRYPOINT ["entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 #----------------------------------------------------------------------------
 # Run Default CMD
 

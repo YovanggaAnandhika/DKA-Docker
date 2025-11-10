@@ -1,8 +1,15 @@
 #!/bin/sh
 set -e
-
+# ##########################################################################
+export DKA_SERVER_REST_PROTOCOL=${DKA_SERVER_REST_PROTOCOL:-'http://'}
+export DKA_SERVER_REST_HOST=${DKA_SERVER_REST_HOST:-127.0.0.1}
+export DKA_SERVER_REST_PORT=${DKA_SERVER_REST_PORT:-80}
+export DKA_SERVER_REST_ENDPOINT=${DKA_SERVER_REST_ENDPOINT:-'api/v1/radius'}
+# ##########################################################################
+export DKA_NAS_TYPE=${DKA_NAS_TYPE:-Mikrotik}
+export DKA_NAS_IP_ADDRESS=${DKA_NAS_IP_ADDRESS:-127.0.0.1}
 export DKA_NAS_SECRET="${DKA_NAS_SECRET:-radius}"
-
+# ##########################################################################
 # Fungsi untuk memonitor MariaDB dan restart jika gagal
 watch_services() {
   while true; do
@@ -19,8 +26,7 @@ watch_services() {
 check_backend() {
     # Gantilah dengan URL endpoint backend REST Anda
     # shellcheck disable=SC3043
-    local DKA_SERVER_REST="${DKA_SERVER_REST_PROTOCOL}${DKA_SERVER_REST_HOST}${DKA_SERVER_REST_ENDPOINT}"  # Ubah URL sesuai endpoint backend Anda
-
+    local DKA_SERVER_REST="${DKA_SERVER_REST_PROTOCOL}${DKA_SERVER_REST_HOST}:${DKA_SERVER_REST_PORT}/${DKA_SERVER_REST_ENDPOINT}"  # Ubah URL sesuai endpoint backend Anda
     # Tunggu sampai backend dapat dijangkau
     until curl --silent --head "$DKA_SERVER_REST"; do
         echo "Rest Server Radius in ${DKA_SERVER_REST} Not Activated. Listening..."

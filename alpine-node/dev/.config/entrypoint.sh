@@ -46,17 +46,13 @@ createTunnel() {
    echo "📄 TUNNEL_JSON: $TUNNEL_JSON"
 }
 
-runningTunnel() {
-  cloudflared tunnel run "$TUNNEL_NAME" &
-}
-
 checkTunnelIsExist() {
   if [ -f "/root/.cloudflared/cert.pem" ]; then
     echo "Detected cloudflared configuration ..."
     createTunnel
     createConfig
     createDNSRoute
-    runningTunnel
+    cloudflared tunnel run "$TUNNEL_NAME" &
   else
     echo "🚧 not detected cloudflare tunnel configuration. skipped ..."
     echo "🚧 to used tunnel. running in exec -it with 'cloudflared tunnel login' and set hostname in service compose.yml file"

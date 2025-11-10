@@ -12,9 +12,6 @@ services:
       DKA_DB_USERNAME: dka
       DKA_DB_PASSWORD: Cyberhack2010
       DKA_CRON_ENABLE: true
-
-      CLOUDFLARE_KEY: ajhdg378wdtgui3wghdjhgdg
-      CLOUDFLARE_DOMAIN: ahjsgdjyawgd
     ports:
       - target: 3306
         published: 3306

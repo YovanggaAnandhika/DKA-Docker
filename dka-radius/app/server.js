@@ -25,7 +25,7 @@ app.use(bodyParser.json());
 
 app.use(morgan('dev'));
 
-var radius = require('./api/routes/radius');
+const radius = require('./api/routes/radius');
 radius(app);
 
 app.listen(port,'0.0.0.0');
