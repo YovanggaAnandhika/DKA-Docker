@@ -21,7 +21,10 @@ COPY config/logrotate.d /etc/logrotate.d/
 RUN mkdir -p /var/log/postgresql && chown postgres:postgres /var/log/postgresql &&  \
     mkdir /backup && chown postgres:postgres /backup && chmod -R 755 /backup && \
     mkdir -p /var/lib/postgresql/data && chown -R postgres:postgres /var/lib/postgresql && \
-    mkdir -p /run/postgresql && chown postgres:postgres /run/postgresql
+    mkdir -p /run/postgresql && chown postgres:postgres /run/postgresql \
+# Add cron dir
+COPY config/cron.d /usr/cron.d/
+RUN chmod +x /usr/cron.d/*
 # add Another Script
 COPY config/bin /usr/local/bin/
 # Copy initialization script

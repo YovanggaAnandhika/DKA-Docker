@@ -119,6 +119,19 @@ load_automation_sql_template() {
   echo "task sql file automation is complete"
 }
 
+load_cron_scheduler(){
+  # Menjalankan cron jika diaktifkan
+  if [ "$ENABLED_CRON" = "true" ]; then
+    for file in /usr/cron.d/*; do
+      if [ -x "$file" ]; then
+        cron_name=$(basename "$file")
+        # Menambahkan log output ke file log
+        echo "$CRON_PRIODIC /bin/bash $file >> /var/log/mysql/cron.log 2>&1" > "/etc/cron.d/$cron_name"
+      fi
+    done
+  fi
+}
+
 checkIsInitDB(){
   # Memeriksa apakah database sudah ada
   if [ ! -f "/var/lib/postgresql/data/DKA_POSTGRESQL_INIT" ]; then
@@ -171,6 +184,8 @@ clear_postmaster_pid() {
 echo "checking init server..."
 clear_postmaster_pid  # Tambahkan pemanggilan fungsi di awal
 checkIsInitDB
+echo "load cron scheduler..."
+load_cron_scheduler
 echo "Running Logrotate..."
 logrotate -f /etc/logrotate.conf >/dev/null 2>&1;
 # Memulai server PostgreSQL secara normal

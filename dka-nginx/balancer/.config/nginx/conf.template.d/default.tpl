@@ -7,13 +7,6 @@ upstream app_upstream {
     server ${APP_SERVICE_HOST}:${APP_SERVICE_PORT};
 }
 
-# (opsional tapi biasanya penting) redirect HTTP -> HTTPS
-server {
-    listen 80;
-    server_name _;
-    return 301 https://$host$request_uri;
-}
-
 server {
     # TCP: HTTP/1.1 + TLS
     listen 443 ssl;

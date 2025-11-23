@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Set database credentials
+DB_USER="postgres"
+# Set default values if environment variables are not provided
+DB_PASSWORD=${DKA_DB_PASSWORD:-postgres}
+BACKUP_DIR="/backup"
+# shellcheck disable=SC1001
+DATE=$(date +\%d-\%m-\%Y_\%H-\%M-\%S)
+BACKUP_FILE="$BACKUP_DIR/schedule_all_databases_$DATE.sql.gz"
+
+# Create a backup directory if it doesn't exist
+mkdir -p $BACKUP_DIR
+
+# Set the PostgreSQL password for the session
+export PGPASSWORD=$DB_PASSWORD
+
+echo "Backing up all databases..."
+
+# Create a backup of all databases, including users, ownership, and roles, and compress it into a .sql.gz file using pg_dumpall
+pg_dumpall -U $DB_USER --clean --no-owner | gzip -9 > "$BACKUP_FILE"
+
+if [ $? -eq 0 ]; then
+    echo "Backup completed successfully: $BACKUP_FILE"
+else
+    echo "Backup failed."
+fi

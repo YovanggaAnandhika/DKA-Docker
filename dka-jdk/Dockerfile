@@ -14,6 +14,3 @@ RUN chmod +x /usr/local/bin/*
 WORKDIR /app
 # Set the entrypoint to the script
 ENTRYPOINT ["entrypoint.sh"]
-
-
-
