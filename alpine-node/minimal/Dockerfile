@@ -43,11 +43,14 @@ ENV TZ=Asia/Makassar
 #############################################################################
 # Set Entrypoint Script
 #############################################################################
-COPY .config/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY .config /usr/local/bin/
 RUN chmod +x /usr/local/bin/*
 #############################################################################
 # End Entrypoint Script
 #############################################################################
+# healty check
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=15s \
+  CMD /usr/local/bin/healthcheck.sh
 #----------------------------------------------------------------------------
 #----------------------------------------------------------------------------
 # Adding Entrypoint
