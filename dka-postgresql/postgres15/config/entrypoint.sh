@@ -86,12 +86,53 @@ initiate_postgresql() {
 }
 
 set_users_and_grant() {
-  # Mengatur user dan grant
-  sed -i "s|{{DB_USERNAME}}|$DB_USERNAME|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
-  sed -i "s|{{DB_NAME}}|$DB_NAME|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
-  sed -i "s|{{ROOT_PASSWORD}}|$ROOT_PASSWORD|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
-  sed -i "s|{{DB_PASSWORD}}|$DB_PASSWORD|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
+  TEMPLATE="/docker-entrypoint-initdb.d/create_users_and_grants.sql.tmpl"
+  OUTPUT="/docker-entrypoint-initdb.d/create_users_and_grants.sql"
+
+  # Jika .tmpl ada → generate file final
+  if [ -f "$TEMPLATE" ]; then
+    : > "$OUTPUT"  # kosongkan file final
+
+    i=1
+    while :; do
+      eval CUR_DB_NAME=\$DKA_DB_NAME_$i
+      eval CUR_DB_USERNAME=\$DKA_DB_USERNAME_$i
+      eval CUR_DB_PASSWORD=\$DKA_DB_PASSWORD_$i
+
+      # fallback: kalau gak ada index, tapi ada single DB klasik
+      if [ "$i" -eq 1 ] && [ -z "$CUR_DB_NAME" ] && [ -n "$DB_NAME" ]; then
+        CUR_DB_NAME="$DB_NAME"
+        CUR_DB_USERNAME="$DB_USERNAME"
+        CUR_DB_PASSWORD="$DB_PASSWORD"
+      fi
+
+      # kalau gak ada DB_NAME → stop
+      [ -z "$CUR_DB_NAME" ] && break
+
+      echo "→ Generate user & db untuk index $i: $CUR_DB_NAME ($CUR_DB_USERNAME)"
+
+      sed \
+        -e "s|{{ROOT_PASSWORD}}|$ROOT_PASSWORD|g" \
+        -e "s|{{DB_USERNAME}}|$CUR_DB_USERNAME|g" \
+        -e "s|{{DB_PASSWORD}}|$CUR_DB_PASSWORD|g" \
+        -e "s|{{DB_NAME}}|$CUR_DB_NAME|g" \
+        "$TEMPLATE" >> "$OUTPUT"
+
+      echo "" >> "$OUTPUT"
+      i=$((i+1))
+    done
+
+    echo "✓ create_users_and_grants.sql berhasil dibuat."
+
+  else
+    echo "⚠️ Template .tmpl tidak ditemukan. Pakai mode single-DB legacy."
+    sed -i "s|{{ROOT_PASSWORD}}|$ROOT_PASSWORD|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
+    sed -i "s|{{DB_USERNAME}}|$DB_USERNAME|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
+    sed -i "s|{{DB_PASSWORD}}|$DB_PASSWORD|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
+    sed -i "s|{{DB_NAME}}|$DB_NAME|g" "/docker-entrypoint-initdb.d/create_users_and_grants.sql"
+  fi
 }
+
 
 load_init_sql_template() {
   # Mengeksekusi skrip SQL dari direktori /docker-entrypoint-initdb.d jika ada
@@ -153,19 +194,6 @@ checkIsInitDB(){
   fi
 }
 
-# Fungsi untuk memonitor PostgreSQL dan restart jika gagal
-watch_services() {
-  echo "started health monitoring process ..."
-  while true; do
-    # Memeriksa apakah postgresql dan cron berjalan
-    if ! pgrep postgres > /dev/null; then
-      echo "one or more process stopped. exit container ..."
-      exit 1
-    fi
-    sleep 3
-  done
-}
-
 # Periksa dan hapus postmaster.pid jika ada sebelum memulai PostgreSQL
 clear_postmaster_pid() {
   POSTMASTER_PID_FILE="/var/lib/postgresql/data/postmaster.pid"
@@ -189,8 +217,10 @@ load_cron_scheduler
 echo "Running Logrotate..."
 logrotate -f /etc/logrotate.conf >/dev/null 2>&1;
 # Memulai server PostgreSQL secara normal
-echo "Final Running PostgreSQL..."
-pg_ctl start -D /var/lib/postgresql/data &
+echo "🚀 Running Postgres Engine..."
+pg_ctl start -D /var/lib/postgresql/data
 checkPostgreSQLIsRunning
 load_automation_sql_template
-watch_services
+echo "📈 Health monitoring active."
+# supaya container tidak mati
+exec tail -f /dev/null

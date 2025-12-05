@@ -21,7 +21,7 @@ COPY config/logrotate.d /etc/logrotate.d/
 RUN mkdir -p /var/log/postgresql && chown postgres:postgres /var/log/postgresql &&  \
     mkdir /backup && chown postgres:postgres /backup && chmod -R 755 /backup && \
     mkdir -p /var/lib/postgresql/data && chown -R postgres:postgres /var/lib/postgresql && \
-    mkdir -p /run/postgresql && chown postgres:postgres /run/postgresql \
+    mkdir -p /run/postgresql && chown postgres:postgres /run/postgresql
 # Add cron dir
 COPY config/cron.d /usr/cron.d/
 RUN chmod +x /usr/cron.d/*
@@ -29,9 +29,14 @@ RUN chmod +x /usr/cron.d/*
 COPY config/bin /usr/local/bin/
 # Copy initialization script
 COPY config/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY config/healthcheck.sh /usr/local/bin/healthcheck.sh
 RUN chmod +x /usr/local/bin/*
+RUN chown -R postgres:postgres /etc/cron.d/
 COPY config/docker-entrypoint-initdb.d /docker-entrypoint-initdb.d
 RUN chown postgres:postgres /docker-entrypoint-initdb.d
+# healty check
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=15s \
+  CMD /usr/local/bin/healthcheck.sh
 # Create Automation SQL
 COPY config/docker-entrypoint.d /docker-entrypoint.d
 RUN chown postgres:postgres /docker-entrypoint.d

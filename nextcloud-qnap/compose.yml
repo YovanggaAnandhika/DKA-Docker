@@ -1,0 +1,42 @@
+services:
+  nextcloud-aio-mastercontainer:
+    image: ghcr.io/nextcloud-releases/all-in-one:latest
+    container_name: nextcloud-aio-mastercontainer
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        host_ip: 0.0.0.0
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        host_ip: 0.0.0.0
+      - target: 8443
+        published: 8443
+        protocol: tcp
+        host_ip: 0.0.0.0
+    environment:
+      NEXTCLOUD_DATADIR: /mnt/ncdata
+    volumes:
+      - type: volume
+        source: nextcloud_aio_mastercontainer
+        target: /mnt/docker-aio-config
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+      - type: volume
+        source: nextcloud_aio_nextcloud_data_dir
+        target: /mnt/ncdata
+
+volumes:
+  nextcloud_aio_mastercontainer:
+    name: nextcloud_aio_mastercontainer
+  # Volume data Nextcloud pakai NFS
+  nextcloud_aio_nextcloud_data_dir:
+    name: nextcloud_aio_nextcloud_data_dir
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=10.10.10.9,nfsvers=3,proto=tcp,rw,noatime,hard,intr"
+      device: ":/nexcloud"

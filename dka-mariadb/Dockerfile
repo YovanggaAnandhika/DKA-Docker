@@ -21,9 +21,11 @@ COPY config/cron.d /usr/cron.d/
 RUN chmod +x /usr/cron.d/*
 # add Another Script
 COPY config/bin /usr/local/bin/
-# Copy initialization script
-COPY config/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/*
+# Buat script Health Check
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=15s \
+  CMD /usr/local/bin/healthcheck.sh
+# docker init script
 COPY config/docker-entrypoint-initdb.d /docker-entrypoint-initdb.d
 # Create Automation SQL
 COPY config/docker-entrypoint.d /docker-entrypoint.d

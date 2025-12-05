@@ -20,11 +20,11 @@ set_memory() {
   # Cek jika nilai memory.max adalah "max" atau kosong
   # shellcheck disable=SC3014
   if [ "$MEMORY_MAX" == "max" ] || [ -z "$MEMORY_MAX" ]; then
-      echo "memory.max not exist. check with memory.limit_in_bytes ..."
+      echo "🛠️ memory.max not exist. check with memory.limit_in_bytes ..."
       MEMORY_MAX=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null)
       # Jika memory.limit_in_bytes juga tidak ada, gunakan total memori host
       if [ -z "$MEMORY_MAX" ]; then
-          echo "limit max memory not exist. fallback use host max memory"
+          echo "🛠️ limit max memory not exist. fallback use host max memory"
           MEMORY_MAX=$(free -b | grep Mem | awk '{print $2}')
       fi
   fi
@@ -38,7 +38,7 @@ set_memory() {
   MEMORY_MAX_MB=$((MEMORY_MAX / 1024 / 1024))
   # Menambahkan akhiran 'M' untuk format MB
   MEMORY_MAX_MB="${MEMORY_MAX_MB}M"
-  echo "Limit memory is $MEMORY_MAX_MB. detected";
+  echo "🛠️ Limit memory is $MEMORY_MAX_MB. detected";
   # Menghitung QUERY_CACHE_SIZE sebagai 5% dari MEMORY_MAX
   QUERY_CACHE_SIZE_MB=$((MEMORY_MAX / 20 / 1024 / 1024))
   QUERY_CACHE_SIZE="${QUERY_CACHE_SIZE_MB}M"
@@ -58,14 +58,14 @@ set_memory() {
 checkMariaDBIsRunning(){
   # Wait for MariaDB to start
     until mariadb-admin ping >/dev/null 2>&1; do
-        echo "Waiting for MariaDB to start..."
+        echo "🧭 Waiting for MariaDB to start..."
         sleep 2
     done
-    echo "MariaDB Server Is Running..."
+    echo "🚀 MariaDB Server Is Running..."
 }
 # Fungsi untuk memulai MariaDB
 initiate_mariadb() {
-  echo "Starting MariaDB (safe) Temporary..."
+  echo "🚀 Starting MariaDB (safe) Temporary..."
   mariadbd-safe --defaults-file="${INIT_CONFIG_PATH}" &
   pid="$!"
   checkMariaDBIsRunning
@@ -84,7 +84,7 @@ load_init_sql_template() {
   if [ -d "/docker-entrypoint-initdb.d" ]; then
       for sql_file in /docker-entrypoint-initdb.d/*.sql; do
           if [ -f "$sql_file" ]; then
-              echo "Running script : $sql_file..."
+              echo "🛠️ Running script : $sql_file..."
               mariadb < "$sql_file"
           fi
       done
@@ -92,17 +92,17 @@ load_init_sql_template() {
 }
 
 load_automation_sql_template() {
-  echo "checking sql file script on /docker-entrypoint.d if exist"
+  echo "🚀 checking sql file script on /docker-entrypoint.d if exist"
   # Mengeksekusi skrip SQL dari direktori /docker-entrypoint.d jika ada
   if [ -d "/docker-entrypoint.d" ]; then
       for sql_file in /docker-entrypoint.d/*.sql; do
           if [ -f "$sql_file" ]; then
-              echo "Running script : $sql_file..."
+              echo "🚀 * Running script : $sql_file..."
               mariadb < "$sql_file"
           fi
       done
   fi
-  echo "task sql file automation is complete"
+  echo "🚀  task sql file automation is complete [DONE]"
 }
 
 load_cron_scheduler(){
@@ -122,46 +122,35 @@ checkIsInitDB(){
   # Memeriksa apakah database sudah ada
   if [ ! -d "/var/lib/mysql/mysql" ]; then
       set_memory
-      echo "first Run. initiate system server..."
+      echo "🛠️ first Run. initiate system server..."
       mariadb-install-db --defaults-file="${INIT_CONFIG_PATH}" > /dev/null 2>&1
-      echo "Database Successfully initiate..."
+      echo "🟢 Database Successfully initiate..."
       initiate_mariadb
       set_users_and_grant
       load_init_sql_template
-      echo "shutdown MariaDB Temporary..."
+      echo "⚠️ shutdown MariaDB Temporary..."
       mariadb-admin shutdown
       wait "$pid"
-      echo "MariaDB successfully stopped."
+      echo "🟢 MariaDB successfully stopped."
   else
       set_memory
-      echo "system MariaDB is initiate.., continue running server."
+      echo "🧭 system MariaDB is initiate.., continue running server."
   fi
 }
 
-# Fungsi untuk memonitor MariaDB dan restart jika gagal
-watch_services() {
-  echo "started health monitoring process ..."
-  while true; do
-    # Memeriksa apakah mongod, cron berjalan
-    if ! pgrep mariadbd > /dev/null || ! pgrep cron > /dev/null; then
-      echo "one or more process stopped. exit container ..."
-      exit 1
-    fi
-    sleep 3
-  done
-}
-
-echo "checking init server..."
+echo "🛠️ checking init server..."
 checkIsInitDB
-echo "load cron scheduler..."
+echo "🟢 load cron scheduler..."
 load_cron_scheduler
-echo "Running Logrotate..."
+echo "🟢 Running Logrotate..."
 logrotate -f /etc/logrotate.conf >/dev/null 2>&1;
-echo "Running Scheduler Cron"
+echo "🟢 Running Scheduler Cron..."
 crond &
 # Memulai server MariaDB secara normal
-echo "Final Running mariadb..."
+echo "🚀 Running MariaDB Server Active..."
 mariadbd --defaults-file="${DEFAULT_CONFIG_PATH}" &
 checkMariaDBIsRunning
+echo "🚀 load Automatically sql templates..."
 load_automation_sql_template
-watch_services
+echo "📈 Health monitoring active."
+wait
