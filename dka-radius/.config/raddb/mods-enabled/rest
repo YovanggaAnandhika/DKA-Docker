@@ -28,7 +28,6 @@ rest {
 		# Format body yang dikirimkan adalah JSON
         body = "json"
 	}
-
 	pool {
 		start = ${thread[pool].start_servers}
 		min = 0

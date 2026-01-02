@@ -41,21 +41,6 @@ server default {
         preprocess
         acct_unique
         suffix
-        update coa {
-            &User-Name = "%{User-Name}"
-            &Acct-Session-Id = "%{Acct-Session-Id}"
-            &NAS-IP-Address = "%{NAS-IP-Address}"
-            &NAS-Port = "%{NAS-Port}"
-            &Framed-IP-Address = "%{Framed-IP-Address}"
-            &Called-Station-Id = "%{Called-Station-Id}"
-            &NAS-Identifier = "%{NAS-Identifier}"
-            &Acct-Status-Type = "%{Acct-Status-Type}"
-            &Event-Timestamp = "%{Event-Timestamp}"
-            &WISPr-Location-ID = "%{WISPr-Location-ID}"
-            &WISPr-Location-Name = "%{WISPr-Location-Name}"
-            &Acct-Unique-Session-Id = "%{Acct-Unique-Session-Id}"
-            &Service-Type = "%{Service-Type}"
-        }
     }
 
     accounting {
@@ -64,21 +49,6 @@ server default {
     }
 
     control {
-        update coa {
-            &User-Name = "%{User-Name}"
-            &Acct-Session-Id = "%{Acct-Session-Id}"
-            &NAS-IP-Address = "%{NAS-IP-Address}"
-            &NAS-Port = "%{NAS-Port}"
-            &Framed-IP-Address = "%{Framed-IP-Address}"
-            &Called-Station-Id = "%{Called-Station-Id}"
-            &NAS-Identifier = "%{NAS-Identifier}"
-            &Acct-Status-Type = "%{Acct-Status-Type}"
-            &Event-Timestamp = "%{Event-Timestamp}"
-            &WISPr-Location-ID = "%{WISPr-Location-ID}"
-            &WISPr-Location-Name = "%{WISPr-Location-Name}"
-            &Acct-Unique-Session-Id = "%{Acct-Unique-Session-Id}"
-            &Service-Type = "%{Service-Type}"
-        }
     }
 
 

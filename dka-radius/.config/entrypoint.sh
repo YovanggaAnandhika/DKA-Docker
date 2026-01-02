@@ -3,6 +3,11 @@ set -e
 
 
 export DKA_NAS_SECRET="${DKA_NAS_SECRET:-radius}"
+export DKA_SERVER_REST_HOST="${DKA_SERVER_REST_HOST:-127.0.0.1}"
+export DKA_SERVER_REST_PROTOCOL="${DKA_SERVER_REST_PROTOCOL:-http://}"
+export DKA_SERVER_REST_ENDPOINT="${DKA_SERVER_REST_ENDPOINT:-/api/radius}"
+export DKA_NAS_IP_ADDRESS="${DKA_NAS_IP_ADDRESS:-113.113.0.7}"
+export DKA_NAS_TYPE="${DKA_NAS_TYPE:-Mikrotik}"
 # Fungsi untuk memeriksa apakah server backend REST dapat dijangkau
 check_backend() {
     # Gantilah dengan URL endpoint backend REST Anda

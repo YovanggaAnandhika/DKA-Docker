@@ -1,0 +1,33 @@
+name: dka-shinobi
+services:
+  app:
+    image: shinobisystems/shinobi:latest
+    container_name: dka-shinobi-app
+    restart: always
+    ports:
+      - target: 8080
+        published: 8080
+        host_ip: 0.0.0.0
+        protocol: tcp
+    volumes:
+      - type: volume
+        source: config
+        target: /config
+      - type: volume
+        source: videos
+        target: /opt/shinobi/videos
+    environment:
+      ADMIN_USER: admin
+      ADMIN_PASSWORD: Cyberhack2010
+    networks:
+      - default
+
+volumes:
+  config:
+    name: dka-shinobi-config
+  videos:
+    name: dka-shinobi-videos
+
+networks:
+  default:
+    name: dka-shinobi-network

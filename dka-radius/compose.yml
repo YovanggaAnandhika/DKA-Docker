@@ -1,86 +1,62 @@
 services:
-  app:
-    image: yovanggaanandhika/freeradius:alpine-rest
-    container_name: app
-    hostname: app
+  # NestJS Backend API
+  # Combined API and RADIUS Server
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dka_server
     restart: always
-    working_dir: /var/www
     environment:
-      DKA_SERVER_REST: 127.0.0.1
-      DKA_NAS_IP_ADDRESS: 80.80.0.1
-      DKA_NAS_SECRET: radius
-      DKA_NAS_TYPE: Mikrotik
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 512M
-        reservations:
-          cpus: "0.80"
-          memory: 128M
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USERNAME=radius_user
+      - DB_PASSWORD=radius_password
+      - DB_DATABASE=radius_db
+      - DKA_NAS_SECRET=Cyberhack2010
+      - "DKA_SERVER_REST_HOST=localhost:3000"
+      - "DKA_SERVER_REST_PROTOCOL=http://"
+      - "DKA_SERVER_REST_ENDPOINT=/api/v1/radius"
+      - "DKA_NAS_IP_ADDRESS=80.80.0.1"
+      - "DKA_NAS_TYPE=Mikrotik"
     volumes:
-      - type: bind
-        source: app
-        target: /var/www
-      - type: bind
-        source: .config/raddb/mods-enabled/rest
-        target: /etc/raddb/mods-enabled/rest
-      - type: bind
-        source: .config/raddb/sites-enabled/coa
-        target: /etc/raddb/sites-enabled/coa
-      - type: bind
-        source: .config/raddb/sites-enabled/originate-coa
-        target: /etc/raddb/sites-enabled/originate-coa
-      - type: bind
-        source: .config/raddb/clients.conf
-        target: /etc/raddb/clients.conf
-      - type: bind
-        source: .config/raddb/sites-enabled/default
-        target: /etc/raddb/sites-enabled/default
+      - .config/raddb/mods-enabled/rest:/etc/raddb/mods-enabled/rest
+      - .config/raddb/mods-enabled/rest_client:/etc/raddb/mods-enabled/rest_client
+      - .config/raddb/sites-enabled/coa:/etc/raddb/sites-enabled/coa
+      - .config/raddb/sites-enabled/originate-coa:/etc/raddb/sites-enabled/originate-coa
+      - .config/raddb/sites-enabled/dynamic-clients:/etc/raddb/sites-enabled/dynamic-clients
+      - .config/raddb/clients.conf:/etc/raddb/clients.conf
+      - .config/raddb/sites-enabled/default:/etc/raddb/sites-enabled/default
     ports:
-      - target: 80
-        published: 80
-        protocol: tcp
-        host_ip: 0.0.0.0
-      - target: 1812
-        published: 1812
-        protocol: udp
-        host_ip: 0.0.0.0
-      - target: 1813
-        published: 1813
-        protocol: udp
-        host_ip: 0.0.0.0
-      - target: 3799
-        published: 3799
-        protocol: udp
-        host_ip: 0.0.0.0
+      - "3000:3000"
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+      - "3799:3799/udp"
+    depends_on:
+      - db
     networks:
-      - default
+      - dka_network
 
-  mongo:
-    image: mongo:latest
-    container_name: mongo
-    hostname: mongo
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: Cyberhack2010
-    ports:
-      - target: 27017
-        published: 27017
-        protocol: tcp
-        host_ip: 0.0.0.0
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: dka_db
     restart: always
+    environment:
+      - POSTGRES_USER=radius_user
+      - POSTGRES_PASSWORD=radius_password
+      - POSTGRES_DB=radius_db
+    ports:
+      - "54321:5432"
     volumes:
-      - type: volume
-        source: mongo_data
-        target: /data/db
+      - postgres_data:/var/lib/postgresql/data
     networks:
-      - default
-
+      - dka_network
 
 volumes:
-  mongo_data:
-    driver: local
+  postgres_data:
+
+
 networks:
-  default:
+  dka_network:
     driver: bridge

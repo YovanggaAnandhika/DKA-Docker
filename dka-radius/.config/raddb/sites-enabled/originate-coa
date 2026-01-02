@@ -79,19 +79,12 @@
 home_server example-coa {
 	type = coa
 
-	#
-	#  Note that a home server of type "coa" MUST be a real NAS,
-	#  with an ipaddr or ipv6addr.  It CANNOT point to a virtual
-	#  server.
-	#
-	#  Change this IP address to the IP address of the NAS.
-	#
-	ipaddr = $ENV{DKA_NAS_IP_ADDRESS}
+	# Placeholder IP, will be overridden by Packet-Dst-IP-Address in pre-proxy
+	ipaddr = 127.0.0.1
 	port = 3799
 
-	#  This secret SHOULD NOT be the same as the shared
-	#  secret in a "client" section.
-	secret = $ENV{DKA_NAS_SECRET}
+	# Placeholder secret, will be looked up dynamically if Packet-Dst-IP-Address matches a client
+	secret = "dynamic-secret"
 
 	#  CoA specific parameters.  See raddb/proxy.conf for details.
 	coa {
@@ -135,6 +128,8 @@ server originate-coa.example.com {
         # Menyiapkan request CoA untuk dikirim ke NAS.
         update proxy-request {
             Packet-Type = CoA-Request
+            # Dynamically set the destination IP from the request attributes
+            Packet-Dst-IP-Address = "%{NAS-IP-Address}"
         }
     }
 

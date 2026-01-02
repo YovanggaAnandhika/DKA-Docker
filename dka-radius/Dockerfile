@@ -1,51 +1,46 @@
-FROM alpine:3.21
-#############################################################################
-# Installing Base Dependencies
-#############################################################################
-# Installing Radius
-RUN apk update
-RUN apk add --no-cache libressl libressl-dev libpcap curl nano bash iputils-ping tzdata
-RUN apk add --no-cache freeradius freeradius-utils freeradius-mysql freeradius-rest freeradius-radclient freeradius-sqlite
-RUN rm -rf /var/cache/apk/* && apk cache clean
-#############################################################################
-# End Base Dependencies
-#############################################################################
-#----------------------------------------------------------------------------
-#############################################################################
-# Adding Config
-#############################################################################
-WORKDIR /home/app
-#############################################################################
-# End Adding Config
-#############################################################################
-COPY .config/raddb /etc/raddb/
-#############################################################################
-# Adding ENV Script
-#############################################################################
-ENV TZ=Asia/Makassar
-ENV DKA_SERVER_REST_HOST=127.0.0.1
-ENV DKA_SERVER_REST_PROTOCOL="http://"
-ENV DKA_SERVER_REST_ENDPOINT="/api/radius"
-ENV DKA_NAS_IP_ADDRESS=113.113.0.7
-ENV DKA_NAS_TYPE=Mikrotik
-#############################################################################
-# End ENV Script
-#############################################################################
-#----------------------------------------------------------------------------
-#############################################################################
-# Set Entrypoint Script
-#############################################################################
-COPY .config/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/*
-#############################################################################
-# End Entrypoint Script
-#############################################################################
-#----------------------------------------------------------------------------
-EXPOSE 1812 1813
-#----------------------------------------------------------------------------
-# Adding Entrypoint
-ENTRYPOINT ["entrypoint.sh"]
-#----------------------------------------------------------------------------
-# Run Default CMD
+# Build stage for NestJS
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY app/package*.json ./
+RUN npm install
+COPY app/ ./
+RUN npm run build
 
-#----------------------------------------------------------------------------
+# Final stage
+FROM alpine:3.21
+
+# Install dependencies (Node.js, FreeRADIUS, utilities)
+RUN apk add --no-cache \
+    nodejs \
+    npm \
+    freeradius \
+    freeradius-utils \
+    freeradius-rest \
+    curl \
+    iputils \
+    tzdata
+
+WORKDIR /app
+
+# Copy NestJS build and dependencies
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src ./src
+
+# Copy FreeRADIUS configuration
+# Note: we will use volumes in docker-compose for easy editing,
+# but we can also bake in defaults here if desired.
+# For now, we rely on the host configs via docker-compose.
+
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Expose ports
+# NestJS
+EXPOSE 3000
+# RADIUS Auth, Acct, CoA
+EXPOSE 1812/udp 1813/udp 3799/udp
+
+ENTRYPOINT ["/entrypoint.sh"]
