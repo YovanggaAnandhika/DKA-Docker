@@ -1,27 +1,33 @@
 #!/bin/bash
 
-# Set database credentials
-DB_USER="postgres"
-# Set default values if environment variables are not provided
-DB_PASSWORD=${DKA_DB_PASSWORD:-postgres}
+# Konfigurasi Database
+DB_NAME=${DKA_DB_NAME:-test}
+DB_USER=${DKA_DB_USERNAME:-test}
+DB_PASSWORD=${DKA_DB_PASSWORD:-test}
+DB_HOST=${DKA_DB_HOST:-localhost} # Sebaiknya tambahkan host
 BACKUP_DIR="/backup"
-# shellcheck disable=SC1001
-DATE=$(date +\%d-\%m-\%Y_\%H-\%M-\%S)
-BACKUP_FILE="$BACKUP_DIR/all_databases_$DATE.sql.gz"
+DATE=$(date +%d-%m-%Y_%H-%M-%S)
+BACKUP_FILE="$BACKUP_DIR/${DB_NAME}_$DATE.sql.gz"
 
-# Create a backup directory if it doesn't exist
 mkdir -p $BACKUP_DIR
-
-# Set the PostgreSQL password for the session
 export PGPASSWORD=$DB_PASSWORD
 
-echo "Backing up all databases..."
+echo "Backing up database: $DB_NAME..."
 
-# Create a backup of all databases, including users, ownership, and roles, and compress it into a .sql.gz file using pg_dumpall
-pg_dumpall -U $DB_USER --clean --no-owner | gzip -9 > "$BACKUP_FILE"
+# Menggunakan pg_dump dengan proteksi maksimal terhadap User & PostGIS
+pg_dump -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" \
+    --no-owner \
+    --no-privileges \
+    --no-extension \
+    --clean \
+    --if-exists \
+    | gzip -9 > "$BACKUP_FILE"
 
-if [ $? -eq 0 ]; then
+# Mengecek status berhasil/gagal menggunakan PIPESTATUS
+if [ ${PIPESTATUS[0]} -eq 0 ]; then
     echo "Backup completed successfully: $BACKUP_FILE"
 else
     echo "Backup failed."
+    # Hapus file backup yang korup/kosong jika gagal
+    rm -f "$BACKUP_FILE"
 fi

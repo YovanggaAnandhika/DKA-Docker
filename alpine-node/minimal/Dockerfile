@@ -12,7 +12,7 @@ LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 
 ARG TARGETARCH
 # Update Repo
-RUN apk update && apk add --no-cache openssl nodejs npm bash nano iputils-ping eudev-libs libusb tzdata curl protobuf-dev openresolv jq && npm install -g yarn
+RUN apk update && apk add --no-cache openssl nodejs npm bash nano iputils-ping eudev-libs libusb tzdata curl protobuf-dev qt5-qtbase qt5-qtbase-x11 poppler-qt5 openresolv jq && npm install -g yarn
 # remove cache and apt cleancertbot certbot-dns-cloudflare
 RUN rm -rf /var/cache/apk/* && apk cache clean
 #############################################################################

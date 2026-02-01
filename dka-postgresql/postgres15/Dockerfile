@@ -12,7 +12,7 @@ LABEL org.opencontainers.image.authors="Yovangga Anandhika <dka.tech.dev@gmail.c
 LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 # Run update & Install Mariadb
 RUN apk update && apk add --no-cache cgroup-tools tzdata htop nano dcron logrotate bash rsync \
-    postgresql15 postgresql15-contrib postgresql15-client && rm -rf /var/cache/apk/*
+    postgresql15 postgis postgresql15-contrib postgresql15-client && rm -rf /var/cache/apk/*
 # Set the timezone (e.g., Asia/Makassar)
 ENV TZ=Asia/Makassar
 # Copy existing log rotate config

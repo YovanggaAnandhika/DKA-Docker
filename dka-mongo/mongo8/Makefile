@@ -1,5 +1,5 @@
 REPOSITORY_NAME=yovanggaanandhika/mongo
-TAG_NAME=latest
+TAG_NAME=12-slim-mongo-8.0.5
 
 default:
 	docker buildx build -t ${REPOSITORY_NAME}:${TAG_NAME} --load .

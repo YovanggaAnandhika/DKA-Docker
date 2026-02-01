@@ -1,45 +1,60 @@
 #!/bin/bash
-# Set database credentials
-DB_USER="postgres"
-ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-root}
+
+# 1. Konfigurasi - Mengambil dari Environment Variables yang Anda tentukan
+DB_NAME=${DKA_DB_NAME:-test}
+DB_USER=${DKA_DB_USERNAME:-test}
+DB_PASSWORD=${DKA_DB_PASSWORD:-test}
+DB_HOST=${DKA_DB_HOST:-localhost}
 BACKUP_DIR="/backup"
-# Get the list of up to 50 .sql.gz files sorted by modification time
+
+# 2. Ambil list file backup (Top 50 terbaru)
 # shellcheck disable=SC2207
-# shellcheck disable=SC2012
 BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.sql.gz 2>/dev/null | head -n 50))
-# If no files are found, display a message and exit
+
 if [ ${#BACKUP_FILES[@]} -eq 0 ]; then
-    echo "No backup files available."
+    echo "Error: Tidak ada file backup di $BACKUP_DIR"
     exit 1
 fi
-echo "Available backup files (showing up to 50 most recent backups):"
-PS3="Select a backup file to restore: "
-# Build the menu options (name + size)
+
+echo "--- Daftar Backup Tersedia (Database Target: $DB_NAME) ---"
+PS3="Pilih nomor file untuk di-restore: "
+
 MENU_OPTIONS=()
 for file in "${BACKUP_FILES[@]}"; do
     FILE_SIZE=$(du -h "$file" | awk '{print $1}')
-    MENU_OPTIONS+=("$(basename "$file" .sql.gz) ($FILE_SIZE)")
+    # Mengambil nama file utuh agar tidak salah saat gunzip
+    MENU_OPTIONS+=("$(basename "$file") ($FILE_SIZE)")
 done
-# Display menu for selecting a file
-select CHOICE in "${MENU_OPTIONS[@]}"; do
-    # Get the selected file name without the size
-    SELECTED_FILE=$(echo "$CHOICE" | awk -F' ' '{print $1}')
-    # Check if the user made a valid selection
-    if [ -z "$SELECTED_FILE" ]; then
-        echo "Invalid selection, please choose a file."
-    else
-        echo "Selected backup file: $SELECTED_FILE"
+
+select OPTION in "${MENU_OPTIONS[@]}"; do
+    if [ -n "$OPTION" ]; then
+        # Ambil nama file dari pilihan (string sebelum spasi pertama)
+        SELECTED_FILE=$(echo "$OPTION" | awk '{print $1}')
         break
+    else
+        echo "Pilihan tidak valid."
     fi
 done
-# Get the full path of the selected backup file
-SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE.sql.gz"
-echo "Restoring database from $SELECTED_BACKUP_PATH..."
-# Restore the selected backup file (this assumes the backup contains the necessary commands to restore)
-gunzip < "$SELECTED_BACKUP_PATH" | PGPASSWORD=$ROOT_PASSWORD psql -U $DB_USER
-# shellcheck disable=SC2181
-if [ $? -eq 0 ]; then
-    echo "Restore completed successfully."
+
+SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE"
+export PGPASSWORD=$DB_PASSWORD
+
+echo "----------------------------------------------------------"
+echo "Memulai Restore ke Host: $DB_HOST | Database: $DB_NAME"
+echo "File: $SELECTED_FILE"
+echo "----------------------------------------------------------"
+
+# 3. Proses Restore Data
+# Langsung melakukan streaming gunzip ke psql
+echo "Mengimpor data sedang berlangsung..."
+gunzip < "$SELECTED_BACKUP_PATH" | psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME"
+
+# Mengecek status exit dari psql (elemen ke-2 dalam pipeline)
+if [ ${PIPESTATUS[1]} -eq 0 ]; then
+    echo "----------------------------------------------------------"
+    echo "✅ SUCCESS: Restore ke database '$DB_NAME' selesai."
 else
-    echo "Restore failed."
+    echo "----------------------------------------------------------"
+    echo "❌ ERROR: Restore gagal."
+    echo "Pastikan database '$DB_NAME' sudah ada dan user memiliki akses."
 fi
