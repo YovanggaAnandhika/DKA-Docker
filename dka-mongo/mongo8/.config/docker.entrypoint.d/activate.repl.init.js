@@ -14,7 +14,9 @@ if (process.env.DKA_REPL_ENABLED === "true") {
         print(`[Init] 🚀 Initializing replica set "${replSetName}" at ${hostname}:27017...`);
         const res = rs.initiate({
             _id: replSetName,
-            members: [{ _id: 0, host: `${hostname}:27017` }]
+            members: [
+                { _id: 0, host: `${hostname}:27017` }
+            ]
         });
         print(`[Init] Result: ${JSON.stringify(res)}`);
     } else {
