@@ -1,52 +1,67 @@
 #!/bin/bash
-# Set database credentials
-export DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
-export DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
-export BACKUP_DIR="/backup"
+# Script Restore MongoDB - Sinkron dengan Script Backup (Exclude System DB)
 
-# Get the list of up to 50 .gz files sorted by modification time
-# shellcheck disable=SC2207
+# --- KONFIGURASI ---
+DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
+DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
+BACKUP_DIR="/backup"
+
+# Ambil daftar file .gz, urutkan berdasarkan waktu modifikasi (terbaru di atas)
 # shellcheck disable=SC2012
 BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.gz 2>/dev/null | head -n 50))
 
-# If no files are found, display a message and exit
 if [ ${#BACKUP_FILES[@]} -eq 0 ]; then
-    echo "No backup files available."
+    echo "❌ Tidak ada file backup tersedia di $BACKUP_DIR"
     exit 1
 fi
 
-echo "Available backup files (showing up to 50 most recent backups):"
-PS3="Select a backup file to restore: "
+echo "----------------------------------------------------------"
+echo "📂 Daftar 50 Backup Terakhir:"
+echo "----------------------------------------------------------"
 
-# Build the menu options (name + size)
 MENU_OPTIONS=()
 for file in "${BACKUP_FILES[@]}"; do
     FILE_SIZE=$(du -h "$file" | awk '{print $1}')
-    MENU_OPTIONS+=("$(basename "$file" .gz) ($FILE_SIZE)")
+    MENU_OPTIONS+=("$(basename "$file") ($FILE_SIZE)")
 done
 
-# Display menu for selecting a file
-select CHOICE in "${MENU_OPTIONS[@]}"; do
-    # Get the selected file name without the size
-    SELECTED_FILE=$(echo "$CHOICE" | awk -F' ' '{print $1}')
+PS3="👉 Pilih nomor file (1-${#MENU_OPTIONS[@]}): "
 
-    # Check if the user made a valid selection
-    if [ -z "$SELECTED_FILE" ]; then
-        echo "Invalid selection, please choose a file."
-    else
-        echo "Selected backup file: $SELECTED_FILE"
+select CHOICE in "${MENU_OPTIONS[@]}"; do
+    if [ -n "$CHOICE" ]; then
+        # Mengambil path lengkap file dari array berdasarkan pilihan user
+        SELECTED_BACKUP_PATH="${BACKUP_FILES[$((REPLY-1))]}"
         break
+    else
+        echo "⚠️ Pilihan tidak valid, silakan pilih nomor yang tersedia."
     fi
 done
 
-# Get the full path of the selected backup file
-SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE.gz"
-echo "Restoring database from $SELECTED_FILE.gz .."
-mongorestore --host 127.0.0.1 --username $DKA_MONGO_USERNAME --password $DKA_MONGO_PASSWORD --verbose --drop --gzip --archive=$SELECTED_BACKUP_PATH
+echo "----------------------------------------------------------"
+echo "🔄 Memulai Restore: $(basename "$SELECTED_BACKUP_PATH")"
+echo "----------------------------------------------------------"
 
-# Check if restore was successful
+# Perintah restore yang sinkron:
+# --verbose: Agar log detail setiap collection terlihat
+# --authenticationDatabase admin: Wajib karena kita login pakai user root
+# --drop: Menghapus data lama sebelum ditimpa agar tidak duplikat/error
+mongorestore --host 127.0.0.1 \
+    --username "$DKA_MONGO_USERNAME" \
+    --password "$DKA_MONGO_PASSWORD" \
+    --authenticationDatabase admin \
+    --verbose \
+    --drop \
+    --gzip \
+    --archive="$SELECTED_BACKUP_PATH"
+
+# Cek apakah eksekusi mongorestore berhasil
 if [ $? -eq 0 ]; then
-    echo "Restore completed successfully."
+    echo "----------------------------------------------------------"
+    echo "✅ Restore selesai dengan sukses!"
+    echo "----------------------------------------------------------"
 else
-    echo "Restore failed."
+    echo "----------------------------------------------------------"
+    echo "❌ Restore GAGAL!" >&2
+    echo "----------------------------------------------------------"
+    exit 1
 fi

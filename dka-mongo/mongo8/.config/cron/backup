@@ -1,24 +1,63 @@
 #!/bin/bash
 set -e
 
+# --- KONFIGURASI ---
 export GZIP=-9
-export DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
-export DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
-export DKA_HOSTNAME=$(hostname) # Ambil hostname sistem
+DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
+DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
+DKA_HOSTNAME=$(hostname)
 
-# Konfigurasi
-BACKUP_DIR="/backup"  # Direktori tujuan backup
+# Direktori tujuan backup
+BACKUP_DIR="/backup"
 TIMESTAMP=$(date +"%H-%M-%S_%d-%m-%Y")
-ARCHIVE_FILE="${DKA_HOSTNAME}_${TIMESTAMP}.gz"  # Nama file arsip
+ARCHIVE_FILE="${DKA_HOSTNAME}_${TIMESTAMP}.gz"
 
 # Membuat direktori backup jika belum ada
 mkdir -p "$BACKUP_DIR"
 
-# Melakukan backup MongoDB menggunakan mongodump
-echo "Processing Backup MongoDB..."
-if mongodump --host 127.0.0.1 --username "$DKA_MONGO_USERNAME" --password "$DKA_MONGO_PASSWORD" --verbose --gzip --archive="$BACKUP_DIR/$ARCHIVE_FILE"; then
-    echo "Backup saved in $ARCHIVE_FILE"
+echo "----------------------------------------------------------"
+echo "🚀 Memulai Backup MongoDB"
+echo "📅 Waktu  : $(date)"
+echo "Host      : 127.0.0.1"
+echo "Archive   : $ARCHIVE_FILE"
+echo "----------------------------------------------------------"
+
+# 1. Melakukan backup (Tanpa DB System/Auth)
+echo "Proses: Dumping data (Excluding admin, config, local)..."
+
+if mongodump --host 127.0.0.1 \
+    --username "$DKA_MONGO_USERNAME" \
+    --password "$DKA_MONGO_PASSWORD" \
+    --authenticationDatabase admin \
+    --excludeDatabase=admin \
+    --excludeDatabase=config \
+    --excludeDatabase=local \
+    --gzip \
+    --archive="$BACKUP_DIR/$ARCHIVE_FILE"; then
+
+    echo "✅ Backup Berhasil: $ARCHIVE_FILE"
+    echo "📊 Ukuran File: $(du -sh "$BACKUP_DIR/$ARCHIVE_FILE" | cut -f1)"
 else
-    echo "Backup failed!" >&2
+    echo "❌ Backup GAGAL!" >&2
     exit 1
 fi
+
+echo "----------------------------------------------------------"
+
+# 2. Membersihkan backup yang usianya lebih dari 7 hari
+echo "🧹 Mengecek file backup lama (di atas 7 hari)..."
+
+# Mencari file .gz di BACKUP_DIR yang dimodifikasi lebih dari 7 hari lalu
+FILES_TO_DELETE=$(find "$BACKUP_DIR" -type f -name "*.gz" -mtime +7)
+
+if [ -n "$FILES_TO_DELETE" ]; then
+    echo "Ditemukan file lama:"
+    echo "$FILES_TO_DELETE"
+    find "$BACKUP_DIR" -type f -name "*.gz" -mtime +7 -delete
+    echo "🗑️ File lama berhasil dihapus."
+else
+    echo "✨ Tidak ada file backup yang lebih dari 7 hari. Skip pembersihan."
+fi
+
+echo "----------------------------------------------------------"
+echo "🏁 Selesai!"
