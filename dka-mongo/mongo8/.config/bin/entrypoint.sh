@@ -1,155 +1,184 @@
 #!/bin/bash
 set -e
 
-export DKA_HOSTNAME=$(hostname) # Ambil hostname sistem
+# --- Visual Styling ---
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
 
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+echo -e "${GREEN}${BOLD}"
+echo "=========================================================="
+echo "      DKA RESEARCH CENTER - MONGODB ENGINE STARTING       "
+echo "=========================================================="
+echo -e "${NC}"
+
+# --- Environment Variables ---
+export DKA_HOSTNAME=${DKA_HOSTNAME:-127.0.0.1}
 export DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
+# Masking password di log untuk keamanan
 export DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
 export DKA_CRON_ENABLE=${DKA_CRON_ENABLE:-false}
 export DKA_CRON_PRIODIC=${DKA_CRON_PRIODIC:-0 3 * * *}
-
-export GLIBC_TUNABLES=glibc.pthread.rseq=0
 export DKA_REPL_ENABLED=${DKA_REPL_ENABLED:-false}
 export DKA_REPL_NAME=${DKA_REPL_NAME:-rs0}
+export GLIBC_TUNABLES=glibc.pthread.rseq=0
 
-# Fungsi untuk memonitor MariaDB dan restart jika gagal
+log_info "Configuration Loaded:"
+log_info " -> Hostname: ${DKA_HOSTNAME}"
+log_info " -> ReplicaSet: ${DKA_REPL_NAME} (Enabled: ${DKA_REPL_ENABLED})"
+log_info " -> User Admin: ${DKA_MONGO_USERNAME}"
+
+# --- Helper Functions ---
+
+mkdir -p /var/log/mongodb
+touch /var/log/mongodb/mongod.log
+chown -R mongodb:mongodb /var/log/mongodb
+
 watch_services() {
+  log_info "Starting monitoring service health check..."
   while true; do
-    # Memeriksa apakah mongod, cron berjalan
-    if ! pgrep mongod > /dev/null || ! pgrep cron > /dev/null; then
-      echo "one or more process stopped. exit container ..."
+    if ! pgrep mongod > /dev/null; then
+      log_error "MongoDB process stopped unexpectedly!"
       exit 1
     fi
-    sleep 3
+    if [ "$DKA_CRON_ENABLE" = "true" ] && ! pgrep cron > /dev/null; then
+      log_warn "Cron process stopped!"
+      exit 1
+    fi
+    sleep 5
   done
 }
-
 
 wait_mongo_start() {
-  until mongosh --eval "print('MongoDB is ready')" >/dev/null 2>&1; do
-      echo "Waiting for MongoDB to start..."
-      sleep 1
+  echo -n -e "${YELLOW}[WAIT] Waiting for MongoDB to be ready...${NC}"
+  for i in {1..30}; do
+    if mongosh --quiet --eval "db.adminCommand('ping')" >/dev/null 2>&1; then
+      echo -e " ${GREEN}[READY]${NC}"
+      return 0
+    fi
+    echo -n "."
+    sleep 1
   done
-  echo "MongoDB is up and running."
-}
-
-start_first_mongo() {
-   if [ "$DKA_REPL_ENABLED" = "true" ]; then
-      mongod --logpath /var/log/mongodb/mongod.log --logappend --replSet "$DKA_REPL_NAME" &
-      MONGOD_PID=$!
-   else
-     mongod --logpath /var/log/mongodb/mongod.log --logappend &
-     MONGOD_PID=$!
-   fi
+  echo -e " ${RED}[TIMEOUT]${NC}"
+  return 1
 }
 
 running_init_file() {
   if [ -d /docker-entrypoint-initdb.d ]; then
+      echo -e "${BLUE}----------------------------------------------------------${NC}"
+      log_info "🚀 Running First-Time Init Files (/docker-entrypoint-initdb.d/)..."
       for file in /docker-entrypoint-initdb.d/*.js; do
           if [ -f "$file" ]; then
-              echo "Running $file"
-              mongosh --verbose < "$file" >> /var/log/mongosh-init.log 2>&1
+              echo -e "${YELLOW}[EXEC] Executing: $(basename $file)${NC}"
+              # Menggunakan 'tee -a' agar muncul di layar DAN tercatat di log file
+              mongosh --quiet < "$file" 2>&1 | tee -a /var/log/mongosh-init.log
+
+              if [ ${PIPESTATUS[0]} -eq 0 ]; then
+                  log_success "✅ $(basename $file) finished successfully."
+              else
+                  log_error "❌ $(basename $file) failed! Check /var/log/mongosh-init.log"
+              fi
           fi
       done
+      echo -e "${BLUE}----------------------------------------------------------${NC}"
   fi
 }
-
 
 running_after_init_file() {
   if [ -d /entrypoint.d ]; then
+      echo -e "${BLUE}----------------------------------------------------------${NC}"
+      log_info "🛠️ Running Post-Boot Files (/entrypoint.d/)..."
       for file in /entrypoint.d/*.js; do
           if [ -f "$file" ]; then
-              echo "Running $file"
-              # Menggunakan eval untuk memuat file dan mencetak output yang dihasilkan
-              mongosh --verbose --username "$DKA_MONGO_USERNAME" --password "$DKA_MONGO_PASSWORD" < "$file" >> /var/log/mongosh-init.log 2>&1
+              echo -e "${YELLOW}[EXEC] Executing: $(basename $file) (Auth Mode)${NC}"
+              # Menampilkan output langsung agar Anda bisa melihat status 'rs0 [direct: primary]'
+              mongosh --quiet --username "$DKA_MONGO_USERNAME" \
+                      --password "$DKA_MONGO_PASSWORD" \
+                      --authenticationDatabase admin < "$file" 2>&1 | tee -a /var/log/mongosh-init.log
+
+              if [ ${PIPESTATUS[0]} -eq 0 ]; then
+                  log_success "✅ $(basename $file) finished successfully."
+              else
+                  log_error "❌ $(basename $file) failed! Check logs for 'NotWritablePrimary' errors."
+              fi
           fi
       done
+      echo -e "${BLUE}----------------------------------------------------------${NC}"
   fi
 }
 
-shutdown_mongod() {
-  echo "Shutting down MongoDB..."
-  mongod --shutdown > /dev/null 2>&1 || echo "MongoDB shutdown encountered an issue."
-}
-
-# Mendeteksi MongoDB Pertama Kali
-if [ -z "$(ls -A /data/db)" ]; then
-    echo "First-time installation detected. Initializing..."
-    touch /var/log/mongodb/mongod.log
-    start_first_mongo
-    wait_mongo_start
-    running_init_file
-    shutdown_mongod
-else
-    echo "Existing MongoDB data detected. Continuing..."
-fi
-
 export_cron_file() {
-  echo "exporting cron file ..."
-  # Menjalankan cron jika diaktifkan
   if [ "$DKA_CRON_ENABLE" = "true" ]; then
+    log_info "Exporting cron files to /etc/cron.d/..."
     for file in /usr/cron.d/*; do
       if [ -x "$file" ]; then
         cron_name=$(basename "$file")
-        # Menambahkan log output ke file log
-        echo "${DKA_CRON_PRIODIC} root /bin/bash $file" > "/etc/cron.d/$cron_name"
+        echo "${DKA_CRON_PRIODIC} root /bin/bash $file >> /var/log/mongodb/cron.log 2>&1" > "/etc/cron.d/$cron_name"
+        chmod 0644 "/etc/cron.d/$cron_name"
       fi
     done
+    cron && log_success "Crontab scheduler is active."
   fi
-  echo "cron file is exported..."
 }
 
-start_log_rotate(){
-  echo "starting rotate log ..."
-  logrotate -f /etc/logrotate.conf &
-  echo "rotate log started ..."
-}
+# --- Main Logic ---
 
-start_mongo_with_replication(){
+# 1. Deteksi Instalasi Pertama (Anti-Ranjau lost+found)
+if [ ! -f "/data/db/storage.bson" ]; then
+    log_warn "Empty data directory detected. Initializing First-Time Setup..."
+
+    # Jalankan mongod background untuk inisialisasi
+    if [ "$DKA_REPL_ENABLED" = "true" ]; then
+      mongod --dbpath /data/db --replSet "$DKA_REPL_NAME" --bind_ip_all --fork --logpath /var/log/mongodb/mongod.log
+    else
+      mongod --dbpath /data/db --bind_ip_all --fork --logpath /var/log/mongodb/mongod.log
+    fi
+
+    wait_mongo_start
+    running_init_file
+
+    log_info "Shutting down temporary instance for final configuration..."
+    mongod --dbpath /data/db --shutdown
+    log_success "Database initialization complete."
+else
+    log_success "Existing MongoDB data found. Resuming operations."
+fi
+
+# 2. Jalankan Engine Utama
+start_mongo_engine() {
+  start_log_rotate() { log_info "Triggering logrotate..."; logrotate -f /etc/logrotate.conf || true; }
   start_log_rotate
   export_cron_file
-  # Start cron in the background
-  echo "Starting crontab scheduler ..."
-  cron &
-  echo "mongo engine starting ..."
-  exec mongod --config /etc/mongod.conf --replSet "$DKA_REPL_NAME" &
-  echo "mongo engine started"
+
+  log_info "Starting MongoDB Main Engine (/etc/mongod.conf)..."
+
+  if [ "$DKA_REPL_ENABLED" = "true" ]; then
+    mongod --config /etc/mongod.conf --replSet "$DKA_REPL_NAME" --bind_ip_all &
+  else
+    mongod --config /etc/mongod.conf --bind_ip_all &
+  fi
+
   wait_mongo_start
   running_after_init_file
-  echo "show system log ..."
+
+  log_success "MongoDB is fully operational!"
+  echo -e "${GREEN}Streaming logs...${NC}"
   tail -f /var/log/mongodb/mongod.log &
-  echo "starting monitoring service health check"
+
+  watch_services
 }
 
-start_mongo_without_replication(){
-  start_log_rotate
-  export_cron_file
-  # Start cron in the background
-  echo "Starting crontab scheduler..."
-  cron &
-  echo "mongo engine starting ..."
-  exec mongod --config /etc/mongod.conf &
-  echo "mongo engine started"
-  wait_mongo_start
-  running_after_init_file
-  echo "show system log ..."
-  tail -f /var/log/mongodb/mongod.log &
-  echo "starting monitoring service health check"
-}
-
-
-
-# Tunggu jika tidak ada argumen, atau eksekusi argumen jika ada
 if [ "$#" -gt 0 ]; then
-    # If arguments exist, execute them
+    log_info "Executing custom command: $@"
     exec "$@"
 else
-    # If no arguments were passed, start MongoDB
-    if [ "$DKA_REPL_ENABLED" = "true" ]; then
-        start_mongo_with_replication
-        watch_services
-    else
-        start_mongo_without_replication
-        watch_services
-    fi
+    start_mongo_engine
 fi

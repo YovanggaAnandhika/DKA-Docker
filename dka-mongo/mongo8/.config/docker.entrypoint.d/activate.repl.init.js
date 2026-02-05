@@ -1,29 +1,25 @@
-// Ambil hostname sistem dari variabel lingkungan
-const hostname = process.env.DKA_HOSTNAME || "localhost";
-const replSetEnabled = process.env.DKA_REPL_ENABLED;
-const replSetName = process.env.DKA_REPL_NAME;
+const hostname = process.env.DKA_HOSTNAME || "127.0.0.1";
+const replSetName = process.env.DKA_REPL_NAME || "rs0";
 
-if (replSetEnabled === "true"){
-    print('replication is enabled. activating ...')
+if (process.env.DKA_REPL_ENABLED === "true") {
+    let isInitialized = false;
     try {
-        // Cek apakah replikasi sudah diinisialisasi
-        const status = rs.status();
-        if (status.ok) {
-            print(`Replica set "${replSetName}" is already initialized.`);
-        } else {
-            throw new Error("Replica set not properly initialized.");
-        }
+        // rs.conf() akan error jika belum di-init
+        if (rs.conf()) { isInitialized = true; }
     } catch (e) {
-        print(`Initializing replica set "${replSetName}"...`);
-        rs.initiate({
-            _id: replSetName,
-            members: [
-                { _id: 0, host: `${hostname}:27017` }
-            ]
-        });
-
-        print(`Replica set "${replSetName}" initialized successfully.`);
+        isInitialized = false;
     }
-}else{
-    print('replication is not enabled')
+
+    if (!isInitialized) {
+        print(`[Init] 🚀 Initializing replica set "${replSetName}" at ${hostname}:27017...`);
+        const res = rs.initiate({
+            _id: replSetName,
+            members: [{ _id: 0, host: `${hostname}:27017` }]
+        });
+        print(`[Init] Result: ${JSON.stringify(res)}`);
+    } else {
+        print(`[Init] ✅ Replica set already configured. Skipping initiation.`);
+    }
+} else {
+    print(`[Init] ℹ️ Replication not enabled (DKA_REPL_ENABLED=false).`);
 }

@@ -26,7 +26,7 @@ RUN mkdir -p /data/db && chown mongodb:mongodb -R /data/db  \
 # Setting env
 ENV TZ=Asia/Makassar
 # Copy Default Mongo Conf
-COPY .config/etc/* /etc/s
+COPY .config/etc/* /etc/
 # Copy existing log rotate config
 COPY .config/logrotate.d /etc/logrotate.d/
 # Copy all bind folder & allow Execution
