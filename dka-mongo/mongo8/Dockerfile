@@ -49,7 +49,7 @@ WORKDIR /home/app
 EXPOSE 27017
 # --- Docker Native Healthcheck ---
 # Ini akan mendeteksi status 'healthy'/'unhealthy' pada docker ps
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=40s \
-  CMD ["/bin/bash", "/usr/local/bin/mongodb-healthcheck.sh", "liveness"]
+HEALTHCHECK --interval=20s --timeout=10s --retries=3 --start-period=60s \
+  CMD /bin/bash /usr/local/bin/healthcheck.sh
 # Set the entrypoint
 ENTRYPOINT ["entrypoint.sh"]

@@ -46,7 +46,10 @@ chown -R mongodb:mongodb /var/log/mongodb
 wait_mongo_start() {
   echo -n -e "${YELLOW}[WAIT] Waiting for MongoDB to be ready...${NC}"
   for i in {1..30}; do
-    if mongosh --quiet --eval "db.adminCommand('ping')" >/dev/null 2>&1; then
+    # Coba ping tanpa auth (untuk awal) ATAU dengan auth (setelah user root dibuat)
+    if mongosh --quiet --eval "db.adminCommand('ping')" >/dev/null 2>&1 || \
+       mongosh --quiet --username "$DKA_MONGO_USERNAME" --password "$DKA_MONGO_PASSWORD" \
+       --authenticationDatabase admin --eval "db.adminCommand('ping')" >/dev/null 2>&1; then
       echo -e " ${GREEN}[READY]${NC}"
       return 0
     fi
