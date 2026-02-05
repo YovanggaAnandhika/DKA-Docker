@@ -16,22 +16,39 @@ ARCHIVE_FILE="${DKA_HOSTNAME}_${TIMESTAMP}.gz"
 mkdir -p "$BACKUP_DIR"
 
 echo "----------------------------------------------------------"
-echo "🚀 Memulai Backup MongoDB"
+echo "🚀 Memulai Backup MongoDB (User Database Only)"
 echo "📅 Waktu  : $(date)"
 echo "Host      : 127.0.0.1"
 echo "Archive   : $ARCHIVE_FILE"
 echo "----------------------------------------------------------"
 
-# 1. Melakukan backup (Tanpa DB System/Auth)
-echo "Proses: Dumping data (Excluding admin, config, local)..."
+# 1. Mendapatkan daftar database aplikasi (Filter out System DB)
+echo "🔍 Mengidentifikasi database aplikasi..."
+DB_LIST=$(mongosh --host 127.0.0.1 -u "$DKA_MONGO_USERNAME" -p "$DKA_MONGO_PASSWORD" \
+          --authenticationDatabase admin --quiet \
+          --eval "db.getMongo().getDBNames().filter(d => !['admin', 'config', 'local'].includes(d)).join(' ')")
+
+if [ -z "$DB_LIST" ]; then
+    echo "⚠️ Tidak ditemukan database aplikasi untuk di-backup!"
+    exit 0
+fi
+
+echo "📦 Database ditemukan: $DB_LIST"
+
+# 2. Menyusun argumen database untuk mongodump
+DUMP_ARGS=""
+for db in $DB_LIST; do
+    DUMP_ARGS="$DUMP_ARGS --db $db"
+done
+
+# 3. Melakukan backup tanpa membawa data Auth/System
+echo "Proses: Dumping data ke $ARCHIVE_FILE..."
 
 if mongodump --host 127.0.0.1 \
     --username "$DKA_MONGO_USERNAME" \
     --password "$DKA_MONGO_PASSWORD" \
     --authenticationDatabase admin \
-    --excludeDatabase=admin \
-    --excludeDatabase=config \
-    --excludeDatabase=local \
+    $DUMP_ARGS \
     --gzip \
     --archive="$BACKUP_DIR/$ARCHIVE_FILE"; then
 
@@ -44,10 +61,9 @@ fi
 
 echo "----------------------------------------------------------"
 
-# 2. Membersihkan backup yang usianya lebih dari 7 hari
+# 4. Membersihkan backup yang usianya lebih dari 7 hari
 echo "🧹 Mengecek file backup lama (di atas 7 hari)..."
 
-# Mencari file .gz di BACKUP_DIR yang dimodifikasi lebih dari 7 hari lalu
 FILES_TO_DELETE=$(find "$BACKUP_DIR" -type f -name "*.gz" -mtime +7)
 
 if [ -n "$FILES_TO_DELETE" ]; then
