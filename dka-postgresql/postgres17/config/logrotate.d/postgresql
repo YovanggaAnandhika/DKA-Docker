@@ -1,0 +1,31 @@
+/var/lib/postgresql/*.err {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 640 mysql mysql
+    postrotate
+        mysqladmin flush-logs
+    endscript
+    compresscmd /bin/tar
+    compressext .tar.gz
+    compressoptions -czf
+}
+
+/var/log/postgresql/*.log {
+    hourly
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 640 mysql mysql
+    postrotate
+        mysqladmin flush-logs
+    endscript
+    compresscmd /bin/tar
+    compressext .tar.gz
+    compressoptions -czf
+}

@@ -1,0 +1,92 @@
+#!/bin/bash
+
+# --- 1. Konfigurasi ---
+DB_HOST=${DKA_DB_HOST:-localhost}
+ROOT_USERNAME=${DKA_ROOT_USERNAME:-postgres}
+ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-postgres}
+
+# Target DB yang akan ditimpa
+DB_NAME=${DKA_DB_NAME:-test}
+# User yang akan memiliki DB setelah restore
+DB_USER=${DKA_DB_USERNAME:-test}
+
+BACKUP_DIR="/backup"
+
+# --- 2. Ambil Daftar Backup ---
+# Mengambil 50 file terbaru berdasarkan waktu modifikasi
+# shellcheck disable=SC2207
+BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.sql.gz 2>/dev/null | head -n 50))
+
+if [ ${#BACKUP_FILES[@]} -eq 0 ]; then
+    echo "❌ Error: Tidak ada file backup (.sql.gz) ditemukan di $BACKUP_DIR"
+    exit 1
+fi
+
+echo "----------------------------------------------------------"
+echo "🔄 POSTGRESQL RESTORE MANAGER (OVERWRITE MODE)"
+echo "----------------------------------------------------------"
+echo "Database Target: $DB_NAME"
+echo "Host Target    : $DB_HOST"
+echo "----------------------------------------------------------"
+
+PS3="Pilih nomor file backup untuk di-restore: "
+MENU_OPTIONS=()
+for file in "${BACKUP_FILES[@]}"; do
+    FILE_SIZE=$(du -h "$file" | awk '{print $1}')
+    MENU_OPTIONS+=("$(basename "$file") ($FILE_SIZE)")
+done
+
+select OPTION in "${MENU_OPTIONS[@]}"; do
+    if [ -n "$OPTION" ]; then
+        SELECTED_FILE=$(echo "$OPTION" | awk '{print $1}')
+        break
+    else
+        echo "⚠️ Pilihan tidak valid, silakan coba lagi."
+    fi
+done
+
+SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE"
+export PGPASSWORD=$ROOT_PASSWORD
+
+echo ""
+echo "❗ PERINGATAN: Semua data di '$DB_NAME' akan DIHAPUS dan DIGANTI!"
+read -p "Apakah Anda yakin ingin melanjutkan? (y/n): " CONFIRM
+if [[ ! $CONFIRM =~ ^[Yy]$ ]]; then
+    echo "❌ Restore dibatalkan."
+    exit 0
+fi
+
+echo "----------------------------------------------------------"
+echo "⏳ Memulai Proses Restore..."
+
+# --- 3. Membersihkan Koneksi Aktif ---
+# Mencegah error "database is being accessed by other users"
+echo "➡️ Memutus koneksi aktif ke database $DB_NAME..."
+psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d postgres -c \
+"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" >/dev/null 2>&1
+
+# --- 4. Persiapan Fondasi (PostGIS) ---
+# Karena dump menggunakan --no-owner dan --no-privileges, kita siapkan extension-nya dulu
+echo "➡️ Menyiapkan ekstensi PostGIS..."
+psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS postgis;" >/dev/null 2>&1
+
+# --- 5. Eksekusi Restore ---
+echo "➡️ Mengimpor data dari $SELECTED_FILE..."
+# Kita gunakan ROOT_USERNAME untuk restore agar perintah DROP TABLE (--clean) berjalan tanpa hambatan
+gunzip < "$SELECTED_BACKUP_PATH" | psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" --set ON_ERROR_STOP=on
+
+# --- 6. Finalisasi Ownership ---
+if [ ${PIPESTATUS[1]} -eq 0 ]; then
+    echo "➡️ Mengatur ulang hak milik (ownership) ke user: $DB_USER..."
+    psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d postgres -c "ALTER DATABASE \"$DB_NAME\" OWNER TO \"$DB_USER\";" >/dev/null 2>&1
+
+    echo "----------------------------------------------------------"
+    echo "✅ SUCCESS: Database '$DB_NAME' berhasil dipulihkan."
+    echo "----------------------------------------------------------"
+else
+    echo "----------------------------------------------------------"
+    echo "❌ ERROR: Terjadi kesalahan saat proses restore."
+    echo "Tips: Cek apakah skema database tujuan konsisten."
+    echo "----------------------------------------------------------"
+    exit 1
+fi

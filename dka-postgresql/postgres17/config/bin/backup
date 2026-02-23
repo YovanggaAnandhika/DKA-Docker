@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# --- 1. Konfigurasi ---
+DB_HOST=${DKA_DB_HOST:-localhost}
+ROOT_USERNAME=${DKA_ROOT_USERNAME:-postgres}
+ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-postgres}
+
+# Target DB yang akan di-backup
+DB_NAME=${DKA_DB_NAME:-test}
+# User pemilik DB (untuk referensi jika diperlukan)
+DB_USER=${DKA_DB_USERNAME:-test}
+
+BACKUP_DIR="/backup"
+DATE=$(date +%d-%m-%Y_%H-%M-%S)
+BACKUP_FILE="$BACKUP_DIR/${DB_NAME}_$DATE.sql.gz"
+
+# Pastikan direktori backup ada
+mkdir -p "$BACKUP_DIR"
+
+# Ekspor password untuk sesi ini saja
+export PGPASSWORD=$ROOT_PASSWORD
+
+echo "----------------------------------------------------------"
+echo "🚀 Memulai Backup Database: $DB_NAME"
+echo "📅 Tanggal: $DATE"
+echo "----------------------------------------------------------"
+
+# --- 2. Proses Dump ---
+# Menggunakan root agar bisa membaca semua skema tanpa hambatan privilege
+# --no-owner & --no-privileges agar dump bersih (bisa di-restore ke user mana saja)
+pg_dump -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" \
+    --no-owner \
+    --no-privileges \
+    --clean \
+    --if-exists \
+    --format=p \
+    | gzip -9 > "$BACKUP_FILE"
+
+# --- 3. Verifikasi ---
+if [ ${PIPESTATUS[0]} -eq 0 ]; then
+    FILE_SIZE=$(du -h "$BACKUP_FILE" | awk '{print $1}')
+    echo "✅ Backup BERHASIL disimpan di: $BACKUP_FILE"
+    echo "📊 Ukuran File: $FILE_SIZE"
+else
+    echo "❌ ERROR: Backup GAGAL!"
+    # Hapus file jika korup (0 byte)
+    rm -f "$BACKUP_FILE"
+    exit 1
+fi
+
+# --- 4. Housekeeping (Opsional) ---
+# Menghapus backup yang lebih lama dari 30 hari
+find "$BACKUP_DIR" -name "*.sql.gz" -type f -mtime +30 -delete
+echo "🧹 Housekeeping selesai (backup >30 hari dihapus)."
+echo "----------------------------------------------------------"

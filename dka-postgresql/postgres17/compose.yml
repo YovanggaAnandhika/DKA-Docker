@@ -3,7 +3,7 @@ name: dka-database-postgresql
 services:
 
   postgresql:
-    image: yovanggaanandhika/postgresql:dev
+    image: yovanggaanandhika/postgresql:17
     container_name: dka-database-postgresql
     hostname: dka-database-postgresql
     restart: always
