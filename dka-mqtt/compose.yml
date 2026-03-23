@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  dka-mqtt:
+    image: emqx:5.8.0
+    container_name: dka-mqtt
+    restart: always
+    # Port configuration (Long Syntax)
+    ports:
+      - target: 1883
+        published: 1883
+        protocol: tcp
+        mode: host
+      - target: 8883
+        published: 8883
+        protocol: tcp
+        mode: host
+      - target: 8083
+        published: 8083
+        protocol: tcp
+        mode: host
+      - target: 8084
+        published: 8084
+        protocol: tcp
+        mode: host
+      - target: 18083
+        published: 18083
+        protocol: tcp
+        mode: host
+    # Volume configuration (Long Syntax dengan nama pakai '-')
+    volumes:
+      - type: volume
+        source: mqtt-data
+        target: /opt/emqx/data
+      - type: volume
+        source: mqtt-log
+        target: /opt/emqx/log
+      - type: volume
+        source: mqtt-etc
+        target: /opt/emqx/etc
+
+    environment:
+      EMQX_NODE__NAME: emqx@127.0.0.1
+      EMQX_CLUSTER__DISCOVERY_STRATEGY: static
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: "@Thedarkangels2010"
+      EMQX_ALLOW_ANONYMOUS: false
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - mqtt-network
+
+# Definisi Named Volumes dengan tanda hubung
+volumes:
+  mqtt-data:
+    name: mqtt-data
+    driver: local
+  mqtt-log:
+    name: mqtt-log
+    driver: local
+  mqtt-etc:
+    name: mqtt-etc
+    driver: local
+
+networks:
+  mqtt-network:
+    name: mqtt-network
+    driver: bridge
