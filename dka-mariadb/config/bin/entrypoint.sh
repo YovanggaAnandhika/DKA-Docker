@@ -149,9 +149,9 @@ cleanup_stale_sockets() {
 }
 
 run_dhcp_client() {
-  echo "📡 Starting dhclient in background for dynamic network configuration..."
-  # -nw: do not wait (runs in background), ensuring it doesn't block Docker initialization
-  dhclient -nw >/dev/null 2>&1 &
+  echo "📡 Starting dhcpcd in background for dynamic network configuration..."
+  # -b: background immediately, ensuring it doesn't block Docker initialization
+  dhcpcd -b >/dev/null 2>&1 &
 }
 
 echo "🛠️ checking init server..."
