@@ -1,4 +1,4 @@
-REPOSITORY_NAME=yovanggaanandhika/node
+REPOSITORY_NAME=yovanggaanandhika/alpine
 TAG_NAME=latest
 
 default:
