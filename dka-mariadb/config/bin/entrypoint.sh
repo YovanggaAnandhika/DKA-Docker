@@ -167,8 +167,30 @@ crond &
 # Memulai server MariaDB secara normal
 echo "🚀 Running MariaDB Server Active..."
 mariadbd --defaults-file="${DEFAULT_CONFIG_PATH}" &
+MARIADB_PID=$!
+
 checkMariaDBIsRunning
 echo "🚀 load Automatically sql templates..."
 load_automation_sql_template
 echo "📈 Health monitoring active."
-wait
+
+# --- Graceful Shutdown Handler ---
+# Berfungsi menangkap sinyal stop/reboot dari Docker/Proxmox LXC
+shutdown_handler() {
+  echo "🛑 Received shutdown signal! Stopping MariaDB gracefully..."
+  if [ -n "$MARIADB_PID" ] && kill -0 "$MARIADB_PID" 2>/dev/null; then
+    kill -TERM "$MARIADB_PID"
+    wait "$MARIADB_PID"
+  fi
+  
+  echo "✅ MariaDB stopped cleanly. Container exiting."
+  # Bersihkan file PID dan socket sebelum exit agar restart lebih lancar 
+  rm -f /run/mysqld/* /run/mysql/* /var/run/mysqld/* 2>/dev/null || true
+  exit 0
+}
+
+# Pasang trap untuk sinyal TERM (shutdown) dan INT (Ctrl+C)
+trap 'shutdown_handler' TERM INT
+
+# Tunggu proses utama MariaDB (memungkinkan trap berjalan seketika saat sinyal ditangkap shell)
+wait "$MARIADB_PID"
