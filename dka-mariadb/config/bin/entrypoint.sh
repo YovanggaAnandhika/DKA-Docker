@@ -138,7 +138,25 @@ checkIsInitDB(){
   fi
 }
 
+cleanup_stale_sockets() {
+  echo "🧹 Preparing socket directories and cleaning stale files..."
+  # Pastikan direktori ada (karena di Docker /run biasanya adalah tmpfs sehingga hilang saat runtime)
+  mkdir -p /run/mysqld /run/mysql /var/run/mysqld
+  chown -R mysql:mysql /run/mysqld /run/mysql /var/run/mysqld
+  
+  # Bersihkan file socket dan pid jadul
+  rm -f /run/mysqld/* /run/mysql/* /var/run/mysqld/* 2>/dev/null || true
+}
+
+run_dhcp_client() {
+  echo "📡 Starting dhclient in background for dynamic network configuration..."
+  # -nw: do not wait (runs in background), ensuring it doesn't block Docker initialization
+  dhclient -nw >/dev/null 2>&1 &
+}
+
 echo "🛠️ checking init server..."
+run_dhcp_client
+cleanup_stale_sockets
 checkIsInitDB
 echo "🟢 load cron scheduler..."
 load_cron_scheduler

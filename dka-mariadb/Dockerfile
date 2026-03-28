@@ -3,7 +3,7 @@ FROM alpine:3.21.0
 # Maintainer
 LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
 # Run update & Install Mariadb
-RUN apk update && apk add --no-cache cgroup-tools tzdata htop nano dcron logrotate bash rsync \
+RUN apk update && apk add --no-cache cgroup-tools tzdata htop nano dcron logrotate bash rsync dhclient \
     mariadb mariadb-client mariadb-server-utils && rm -rf /var/cache/apk/*
 # Set the timezone (e.g., Asia/Makassar)
 ENV TZ=Asia/Makassar
