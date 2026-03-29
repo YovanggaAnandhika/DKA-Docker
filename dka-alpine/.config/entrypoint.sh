@@ -29,6 +29,10 @@ fi
 # TAHAP B: APLIKASI UTAMA (USER LEVEL)
 # ==============================================================================
 echo "🛡️ [DKA] Runtime: $(get_container_runtime)"
+if [ "$(get_container_runtime)" = "LXC" ]; then
+    echo "📦 [LXC Detected] Configuring ifupdown-ng..."
+    ifup -a >/dev/null 2>&1 || true
+fi
 # 1. Jika pengguna memberikan argumen custom (misal: "bash", "node app.js")
 if [ "$#" -gt 0 ]; then
     echo "▶️ Forwarding command arguments to execution..."
