@@ -148,14 +148,7 @@ cleanup_stale_sockets() {
   rm -f /run/mysqld/* /run/mysql/* /var/run/mysqld/* 2>/dev/null || true
 }
 
-run_dhcp_client() {
-  echo "📡 Starting dhcpcd in background for dynamic network configuration..."
-  # -b: background immediately, ensuring it doesn't block Docker initialization
-  dhcpcd -b >/dev/null 2>&1 &
-}
-
 echo "🛠️ checking init server..."
-run_dhcp_client
 cleanup_stale_sockets
 checkIsInitDB
 echo "🟢 load cron scheduler..."

@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # ENTRYPOINT SCRIPT DKA POSTGRESQL (ALPINE LINUX)
-# Tujuan Utama: Menangani inisialisasi awal database, konfigurasi jaringan 
+# Tujuan Utama: Menangani inisialisasi awal database, konfigurasi jaringan
 # dinamis, manajemen memori otomatis, serta Graceful Shutdown di container.
 # ==============================================================================
 
@@ -22,7 +22,7 @@ DB_NAME=${DKA_DB_NAME:-test}
 DB_USERNAME=${DKA_DB_USERNAME:-test}
 DB_PASSWORD=${DKA_DB_PASSWORD:-test}
 
-# Konfigurasi Limitas Batas Koneksi 
+# Konfigurasi Limitas Batas Koneksi
 DB_MAX_CONNECTION=${DKA_DB_MAX_CONNECTION:-200}
 
 # ==============================================================================
@@ -30,7 +30,7 @@ DB_MAX_CONNECTION=${DKA_DB_MAX_CONNECTION:-200}
 # ==============================================================================
 
 # Fungsi set_hba()
-# Mengizinkan akses jaringan (Listen) dari seluruh IPv4/IPv6 menggunakan metode 
+# Mengizinkan akses jaringan (Listen) dari seluruh IPv4/IPv6 menggunakan metode
 # otentikasi hashing password yang aman (scram-sha-256).
 set_hba() {
   echo "host    all             all             0.0.0.0/0            scram-sha-256" >> $DEFAULT_CONFIG_HBA_PATH
@@ -38,8 +38,8 @@ set_hba() {
 }
 
 # Fungsi set_memory()
-# Mendeteksi limit memori container dari Cgroup host, lalu mengatur parameter 
-# cache di dalam postgresql.conf (seperti shared_buffers) secara otomatis sebesar 
+# Mendeteksi limit memori container dari Cgroup host, lalu mengatur parameter
+# cache di dalam postgresql.conf (seperti shared_buffers) secara otomatis sebesar
 # 80% dari total memori RAM yang diperbolehkan.
 set_memory() {
   PERCENT_MEMORY=0.8
@@ -195,14 +195,14 @@ checkIsInitDB() {
       initiate_postgresql
       set_users_and_grant
       load_init_sql_template
-      
+
       echo "🛑 Shutting down Temporary PostgreSQL..."
       pg_ctl stop -D /var/lib/postgresql/data
       wait "$pid"
-      
+
       set_memory
       set_hba
-      
+
       # Membuat tanda bahwasannya InitDB telah berhasil
       touch "/var/lib/postgresql/data/DKA_POSTGRESQL_INIT"
       echo "✅ Inisialisasi database perdana selesai."
@@ -220,7 +220,7 @@ clear_postmaster_pid() {
   rm -f "/run/postgresql/.s.PGSQL.5432.lock"
   rm -f "/run/postgresql/.s.PGSQL.5432"
   rm -rf /run/postgresql/* 2>/dev/null || true
-  
+
   # Memastikan /run/postgresql kembali bisa ditulisi postgres
   mkdir -p /run/postgresql && chown postgres:postgres /run/postgresql 2>/dev/null || true
 }
@@ -233,20 +233,17 @@ clear_postmaster_pid() {
 # Memanfaatkan desain Dockerfile "USER root" untuk menginisiasi skrip jaringan.
 if [ "$(id -u)" = '0' ]; then
   echo "⚙️ Running as root. Setting up network and preparing directories..."
-  
   # [FITUR: Dynamic Hotplug DHCP]
   # Mengaktifkan detektor DHCP Network di latar belakang tanpa me-lagging proses startup (Docker Friendly).
   # Ini penting saat server Proxmox menjejalkan interface jaringan ke CT lxc secara live.
-  echo "📡 Starting dhcpcd in background for dynamic network configuration..."
-  dhcpcd -b >/dev/null 2>&1 &
-  
-  # Pastikan file/direktori penting aman sebelum lepas hak akses root, menghindari "Permission Denied" 
+  #echo "📡 Starting dhcpcd in background for dynamic network configuration..."
+  #dhcpcd -b >/dev/null 2>&1 &
+  # Pastikan file/direktori penting aman sebelum lepas hak akses root, menghindari "Permission Denied"
   # pada Persistent Volume Kubernetes yang salah mengubah status 'Owner/Group'.
   mkdir -p /var/run/postgresql /run/postgresql /var/lib/postgresql /var/log/postgresql
   chown -R postgres:postgres /var/run/postgresql /run/postgresql /var/lib/postgresql /var/log/postgresql /etc/cron.d
-  
   # [FITUR: Hak Akses Dialihkan]
-  # Menyerahkan tongkat estafet dan melakukan penggantian Sesi secara paksa (menggunakan teknik Switch-Exec) dari 
+  # Menyerahkan tongkat estafet dan melakukan penggantian Sesi secara paksa (menggunakan teknik Switch-Exec) dari
   # root ke user "postgres" sambil mengeksekusi ULANG skrip yang sama beserta parameternya supaya tidak putus PID 1.
   echo "👤 Dropping privileges and switching to postgres user..."
   exec su-exec postgres "$0" "$@"
@@ -277,14 +274,14 @@ load_automation_sql_template
 echo "📊 Monitoring database logs..."
 
 # --- TAHAP B: FITUR GRACEFUL SHUTDOWN (MENJAGA STARTUP CEPAT KETIKA REBOOT) ---
-# Berfungsi me-naikkan perisai (trap) guna mendengarkan jika kernel (Proxmox/Kubernetes) 
+# Berfungsi me-naikkan perisai (trap) guna mendengarkan jika kernel (Proxmox/Kubernetes)
 # sedang mencoba membunuh container. Kita bisa membereskannya dengan anggun daripada menunggu 60 detik freeze/heng!
 shutdown_handler() {
   echo "🛑 Received shutdown signal! Stopping PostgreSQL gracefully..."
   # Meluncurkan mode "fast" stop, melepaskan socket dengan wajar/aman tanpa delay.
   pg_ctl stop -D /var/lib/postgresql/data -m fast
   echo "✅ PostgreSQL stopped cleanly. Container exiting."
-  
+
   clear_postmaster_pid
   exit 0
 }
@@ -292,7 +289,7 @@ shutdown_handler() {
 # Menyaring Sinyal Sistem Khusus dari Docker Engine / Containerd
 trap 'shutdown_handler' TERM INT
 
-# Mengerahkan utilitas komando "tail" untuk menggantikan posisi blok shell ini. 
+# Mengerahkan utilitas komando "tail" untuk menggantikan posisi blok shell ini.
 # Selain mencegah layar konsol kosong, cara ini menjaga kelangsungan hidup skrip serta membuat Trap Listener kita bereaksi instan.
 tail -f /var/lib/postgresql/data/main_server.log &
 TAIL_PID=$!

@@ -9,14 +9,11 @@ set -e
 # --- TAHAP A: MANAJEMEN NETWORKING & PRIVILEGE DROP (ROOT LEVEL) ---
 if [ "$(id -u)" = '0' ]; then
   echo "⚙️ Running as root. Setting up network and preparing directories..."
-  
   # Aktifkan dhcpcd untuk mendukung dynamic IP pada Proxmox LXC secara Hotplug
-  echo "📡 Starting dhcpcd in background for dynamic network configuration..."
-  dhcpcd -b >/dev/null 2>&1 &
-  
+  #echo "📡 Starting dhcpcd in background for dynamic network configuration..."
+  #dhcpcd -b >/dev/null 2>&1 &
   # Amankan Directory utama /home/app untuk Kubernetes Persistent Volumes
   chown -R www-data:www-data /home/app
-  
   # Pindahkan eksekusi skrip ini murni kepada "www-data" secara aman
   echo "👤 Dropping privileges and switching to 'www-data' user..."
   exec su-exec www-data "$0" "$@"
