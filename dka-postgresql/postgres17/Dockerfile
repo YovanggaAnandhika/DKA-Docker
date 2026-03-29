@@ -23,7 +23,7 @@ LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 # - su-exec: Utilitas WAJIB untuk "menurunkan hak akses" (privilege drop) dengan aman dari 'root' ke 'postgres' saat container booting, tanpa memecah PID 1 untuk Graceful Shutdown.
 # - postgresql, postgis, postgresql-contrib, postgresql-client: Database utama, library GIS, plugin kontrib, dan client tool psql.
 # Terakhir menghapus (/var/cache/apk/*) untuk memastikan ukuran image akhir seminimum mungkin.
-RUN apk update && apk add --no-cache cgroup-tools tzdata htop nano dcron logrotate bash rsync dhcpcd su-exec \
+RUN apk update && apk add --no-cache cgroup-tools tzdata htop nano dcron logrotate bash rsync ifupdown-ng su-exec \
     postgresql postgis postgresql-contrib postgresql-client && rm -rf /var/cache/apk/*
 
 # === 4. KONFIGURASI LINGKUNGAN / ENVIRONMENT ===

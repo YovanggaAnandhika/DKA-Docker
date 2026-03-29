@@ -262,6 +262,10 @@ fi
 # ==============================================================================
 echo "--- DKA POSTGRESQL ENTRYPOINT STARTING ---"
 echo "🛡️ [DKA] Runtime: $(get_container_runtime)"
+if [ "$(get_container_runtime)" = "LXC" ]; then
+    echo "📦 [LXC Detected] Configuring ifupdown-ng..."
+    ifup -a >/dev/null 2>&1 || true
+fi
 # Eksekusi blok operasi (Check PID, Init Volume Baru, Setting Cron, Log Rotate)
 clear_postmaster_pid
 
@@ -289,7 +293,6 @@ shutdown_handler() {
   # Meluncurkan mode "fast" stop, melepaskan socket dengan wajar/aman tanpa delay.
   pg_ctl stop -D /var/lib/postgresql/data -m fast
   echo "✅ PostgreSQL stopped cleanly. Container exiting."
-
   clear_postmaster_pid
   exit 0
 }
