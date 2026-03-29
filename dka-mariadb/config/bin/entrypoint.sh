@@ -146,16 +146,24 @@ checkIsInitDB(){
 }
 
 cleanup_stale_sockets() {
-  echo "🧹 Preparing socket directories and cleaning stale files..."
-  # Pastikan direktori ada (karena di Docker /run biasanya adalah tmpfs sehingga hilang saat runtime)
-  mkdir -p /run/mysqld /run/mysql /var/run/mysqld
-  chown -R mysql:mysql /run/mysqld /run/mysql /var/run/mysqld
-  
-  # Bersihkan file socket dan pid jadul
-  rm -f /run/mysqld/* /run/mysql/* /var/run/mysqld/* 2>/dev/null || true
+  # MariaDB butuh folder socket yang tepat
+    rm -rf /run/mysqld /var/run/mysqld
+    mkdir -p /run/mysqld /var/run/mysqld /var/lib/mysql
+
+    # WAJIB: LXC butuh kepemilikan user mysql yang jelas
+    chown -R mysql:mysql /run/mysqld /var/run/mysqld /var/lib/mysql
+
+    # Hapus file lock sisa crash
+    find /var/lib/mysql -name "*.pid" -delete
+    rm -f /run/mysqld/mysqld.sock.lock 2>/dev/null || true
 }
 
 echo "🛡️ [DKA] Runtime: $(get_container_runtime)"
+if [ "$(get_container_runtime)" = "LXC" ]; then
+    echo "📦 [LXC Detected] Configuring ifupdown-ng..."
+    ifup -a >/dev/null 2>&1 || true
+fi
+
 echo "🛠️ checking init server..."
 cleanup_stale_sockets
 checkIsInitDB
