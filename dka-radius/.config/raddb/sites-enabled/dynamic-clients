@@ -1,0 +1,15 @@
+server dynamic_clients {
+    authorize {
+        # If the REST API returned the client details, update control attributes
+        # Note: rlm_rest returns 'updated' when it adds attributes to the reply list
+        rest_client
+        if (updated || ok) {
+            update control {
+                FreeRADIUS-Client-IP-Address = "%{Packet-Src-IP-Address}"
+                FreeRADIUS-Client-Secret = "%{reply:FreeRADIUS-Client-Secret}"
+                FreeRADIUS-Client-Shortname = "%{reply:FreeRADIUS-Client-Shortname}"
+                FreeRADIUS-Client-NAS-Type = "%{reply:FreeRADIUS-Client-NAS-Type}"
+            }
+        }
+    }
+}

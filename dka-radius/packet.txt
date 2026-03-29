@@ -1,0 +1,5 @@
+Acct-Session-Id=80300037
+User-Name=dka
+NAS-IP-Address=113.113.0.7
+Framed-IP-Address=103.113.1.247
+NAS-Port=2150629431

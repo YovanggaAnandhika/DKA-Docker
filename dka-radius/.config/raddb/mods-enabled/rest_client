@@ -1,0 +1,10 @@
+rest rest_client {
+	connect_uri = "$ENV{DKA_SERVER_REST_PROTOCOL}$ENV{DKA_SERVER_REST_HOST}$ENV{DKA_SERVER_REST_ENDPOINT}"
+
+	authorize {
+		uri = "${..connect_uri}/client"
+		method = 'post'
+		# Format body yang dikirimkan adalah JSON
+        body = "json"
+	}
+}

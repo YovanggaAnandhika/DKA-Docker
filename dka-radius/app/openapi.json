@@ -1,0 +1,260 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "DKA RADIUS Dual API",
+        "description": "API for FreeRADIUS integration and External Application Management",
+        "version": "2.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:3000",
+            "description": "NestJS Development Server"
+        }
+    ],
+    "paths": {
+        "/api/radius/authenticate": {
+            "post": {
+                "summary": "FreeRADIUS Authentication",
+                "tags": [
+                    "RADIUS Interface"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "User-Name": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "User-Password": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Access-Accept with attributes",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RadiusReply"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/radius/accounting": {
+            "post": {
+                "summary": "FreeRADIUS Accounting",
+                "tags": [
+                    "RADIUS Interface"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "User-Name": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "Acct-Status-Type": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "Acct-Input-Octets": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "Acct-Output-Octets": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Accounting processed"
+                    }
+                }
+            }
+        },
+        "/api/radius/logout": {
+            "post": {
+                "summary": "Trigger CoA Logout",
+                "tags": [
+                    "RADIUS Interface"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "username": {
+                                        "type": "string"
+                                    },
+                                    "nas_ip": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "CoA Request Sent"
+                    }
+                }
+            }
+        },
+        "/nas": {
+            "post": {
+                "summary": "NAS Dynamic Client Lookup",
+                "tags": [
+                    "RADIUS Interface"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "NAS Secret retrieved"
+                    }
+                }
+            }
+        },
+        "/api/v1/users": {
+            "get": {
+                "summary": "List all users",
+                "tags": [
+                    "Integration Interface"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create new user",
+                "tags": [
+                    "Integration Interface"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserCreate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    }
+                }
+            }
+        },
+        "/api/v1/users/{username}/usage": {
+            "get": {
+                "summary": "Get user usage stats",
+                "tags": [
+                    "Integration Interface"
+                ],
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Usage stats"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "RadiusReply": {
+                "type": "object",
+                "properties": {
+                    "WISPr-Bandwidth-Max-Down": {
+                        "type": "integer"
+                    },
+                    "WISPr-Bandwidth-Max-Up": {
+                        "type": "integer"
+                    },
+                    "Mikrotik-Rate-Limit": {
+                        "type": "string"
+                    },
+                    "Session-Timeout": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "UserCreate": {
+                "type": "object",
+                "required": [
+                    "username",
+                    "password",
+                    "profileId"
+                ],
+                "properties": {
+                    "username": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "connection_type": {
+                        "type": "string",
+                        "enum": [
+                            "PPP",
+                            "HOTSPOT"
+                        ]
+                    },
+                    "profileId": {
+                        "type": "integer"
+                    },
+                    "max_data_quota_override": {
+                        "type": "integer"
+                    }
+                }
+            }
+        }
+    }
+}
