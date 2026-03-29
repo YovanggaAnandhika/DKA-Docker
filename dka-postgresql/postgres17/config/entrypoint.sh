@@ -25,6 +25,24 @@ DB_PASSWORD=${DKA_DB_PASSWORD:-test}
 # Konfigurasi Limitas Batas Koneksi
 DB_MAX_CONNECTION=${DKA_DB_MAX_CONNECTION:-200}
 
+
+# Inisialisasi status
+ENV_TYPE="UNKNOWN"
+
+# 1. Cek Kubernetes (Paling Spesifik)
+# Kubernetes menyuntikkan Service Account ke path ini secara default
+if [ -d "/var/run/secrets/kubernetes.io" ]; then
+    ENV_TYPE="KUBERNETES"
+# 2. Cek Docker
+# Docker membuat file .dockerenv di root atau string 'docker' di cgroup
+elif [ -f /.dockerenv ] || grep -q "docker" /proc/self/cgroup 2>/dev/null; then
+    ENV_TYPE="DOCKER"
+# 3. Cek LXC (Proxmox)
+# Proxmox menyuntikkan variabel 'container=lxc' ke dalam environment PID 1
+elif grep -aq "container=lxc" /proc/1/environ 2>/dev/null; then
+    ENV_TYPE="LXC"
+fi
+
 # ==============================================================================
 # --- 2. Kumpulan Fungsi Utilitas & Konfigurasi Inti ---
 # ==============================================================================
