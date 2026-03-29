@@ -5,6 +5,12 @@ set -e
 # ENTRYPOINT SCRIPT DKA BASE ALPINE
 # Mendukung Ekosistem: Kubernetes (PV Permissions), LXC Proxmox (DHCP), Docker
 # ==============================================================================
+get_container_runtime() {
+    if [ -d "/var/run/secrets/kubernetes.io" ]; then echo "KUBERNETES"
+    elif [ -f /.dockerenv ]; then echo "DOCKER"
+    elif grep -aq "container=lxc" /proc/1/environ 2>/dev/null; then echo "LXC"
+    else echo "STANDALONE"; fi
+}
 
 # --- TAHAP A: MANAJEMEN NETWORKING & PRIVILEGE DROP (ROOT LEVEL) ---
 if [ "$(id -u)" = '0' ]; then
@@ -22,7 +28,7 @@ fi
 # ==============================================================================
 # TAHAP B: APLIKASI UTAMA (USER LEVEL)
 # ==============================================================================
-
+echo "🛡️ [DKA] Runtime: $(get_container_runtime)"
 # 1. Jika pengguna memberikan argumen custom (misal: "bash", "node app.js")
 if [ "$#" -gt 0 ]; then
     echo "▶️ Forwarding command arguments to execution..."

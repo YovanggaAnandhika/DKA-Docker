@@ -26,22 +26,12 @@ DB_PASSWORD=${DKA_DB_PASSWORD:-test}
 DB_MAX_CONNECTION=${DKA_DB_MAX_CONNECTION:-200}
 
 
-# Inisialisasi status
-ENV_TYPE="UNKNOWN"
-
-# 1. Cek Kubernetes (Paling Spesifik)
-# Kubernetes menyuntikkan Service Account ke path ini secara default
-if [ -d "/var/run/secrets/kubernetes.io" ]; then
-    ENV_TYPE="KUBERNETES"
-# 2. Cek Docker
-# Docker membuat file .dockerenv di root atau string 'docker' di cgroup
-elif [ -f /.dockerenv ] || grep -q "docker" /proc/self/cgroup 2>/dev/null; then
-    ENV_TYPE="DOCKER"
-# 3. Cek LXC (Proxmox)
-# Proxmox menyuntikkan variabel 'container=lxc' ke dalam environment PID 1
-elif grep -aq "container=lxc" /proc/1/environ 2>/dev/null; then
-    ENV_TYPE="LXC"
-fi
+get_container_runtime() {
+    if [ -d "/var/run/secrets/kubernetes.io" ]; then echo "KUBERNETES"
+    elif [ -f /.dockerenv ]; then echo "DOCKER"
+    elif grep -aq "container=lxc" /proc/1/environ 2>/dev/null; then echo "LXC"
+    else echo "STANDALONE"; fi
+}
 
 # ==============================================================================
 # --- 2. Kumpulan Fungsi Utilitas & Konfigurasi Inti ---
@@ -271,7 +261,7 @@ fi
 # Mulai dari baris ini, user saat ini sudah dipastikan berjalan murni sebagai "postgres"
 # ==============================================================================
 echo "--- DKA POSTGRESQL ENTRYPOINT STARTING ---"
-
+echo "🛡️ [DKA] Runtime: $(get_container_runtime)"
 # Eksekusi blok operasi (Check PID, Init Volume Baru, Setting Cron, Log Rotate)
 clear_postmaster_pid
 
