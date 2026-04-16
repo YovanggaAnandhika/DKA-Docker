@@ -191,9 +191,9 @@ shutdown_handler() {
     kill -TERM "$MARIADB_PID"
     wait "$MARIADB_PID"
   fi
-  
+
   echo "✅ MariaDB stopped cleanly. Container exiting."
-  # Bersihkan file PID dan socket sebelum exit agar restart lebih lancar 
+  # Bersihkan file PID dan socket sebelum exit agar restart lebih lancar
   rm -f /run/mysqld/* /run/mysql/* /var/run/mysqld/* 2>/dev/null || true
   exit 0
 }
