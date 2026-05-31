@@ -22,12 +22,10 @@ LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 # - dhcpcd: DHCP client (Dukungan alokasi IP dinamis otomatis jika langsung dijalankan di jaringan Proxmox LXC).
 # - su-exec: Utilitas WAJIB untuk "menurunkan hak akses" (privilege drop) dengan aman dari 'root' ke 'postgres' saat container booting, tanpa memecah PID 1 untuk Graceful Shutdown.
 # - postgresql, postgis, postgresql-contrib, postgresql-client: Database utama, library GIS, plugin kontrib, dan client tool psql.
-# Terakhir menghapus (/var/cache/apk/*) untuk memastikan ukuran image akhir seminimum mungkin.
-RUN apk update && apk add --no-cache cgroup-tools tzdata htop nano dcron logrotate bash rsync ifupdown-ng su-exec \
-    postgresql postgis postgresql-contrib postgresql-client && rm -rf /var/cache/apk/*
-
-# Install pg_partman from source so the extension is available for initdb
-RUN apk add --no-cache --virtual .build-deps git build-base postgresql-dev perl && \
+# - pg_partman: Partman extension build/install dari source.
+RUN apk add --no-cache --virtual .build-deps git build-base postgresql-dev perl \
+    cgroup-tools tzdata htop nano dcron logrotate bash rsync ifupdown-ng su-exec \
+    postgresql postgis postgresql-contrib postgresql-client && \
     git clone --depth 1 https://github.com/keithf4/pg_partman.git /tmp/pg_partman && \
     cd /tmp/pg_partman && make && make install && \
     rm -rf /tmp/pg_partman && apk del .build-deps
