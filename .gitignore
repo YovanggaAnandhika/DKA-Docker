@@ -3,3 +3,5 @@
 /*/**/node_modules
 /*/**/dist
 /*/**/phpMyAdmin
+.DS_Store
+**/.DS_Store

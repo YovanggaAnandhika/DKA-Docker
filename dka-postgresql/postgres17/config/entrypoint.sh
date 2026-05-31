@@ -82,15 +82,34 @@ set_memory() {
   MEMORY_MAX=$(printf "%.0f" "$MEMORY_MAX")
   MEMORY_MAX_MB=$((MEMORY_MAX / 1024 / 1024))
 
+  # 1. Alokasi Dasar
   SHARED_BUFFERS=$((MEMORY_MAX / 4 / 1024 / 1024))"MB"
   WORK_MEM=$((MEMORY_MAX / 4 / DB_MAX_CONNECTION / 1024))"kB"
 
-  echo "📈 Memory detected: ${MEMORY_MAX_MB}MB. Setting shared_buffers to $SHARED_BUFFERS"
+  # 2. Perhitungan Lanjutan untuk Performa
+  EFFECTIVE_CACHE_SIZE=$((MEMORY_MAX_MB * 3 / 4))"MB" # 75% dari alokasi memori
+  MAINTENANCE_WORK_MEM=$((MEMORY_MAX_MB / 10))"MB"   # 10% dari alokasi memori (min 64MB)
+  if [ $((MEMORY_MAX_MB / 10)) -lt 64 ]; then MAINTENANCE_WORK_MEM="64MB"; fi
 
+  echo "📈 Memory detected: ${MEMORY_MAX_MB}MB. Tuning PostgreSQL for High Performance..."
+
+  # --- Konfigurasi Dasar ---
   sed -i "s|^\s*#*shared_buffers =.*|shared_buffers = $SHARED_BUFFERS|g" "$DEFAULT_CONFIG_PATH"
   sed -i "s|^\s*#*max_connections =.*|max_connections = $DB_MAX_CONNECTION|g" "$DEFAULT_CONFIG_PATH"
   sed -i "s|^\s*#*work_mem =.*|work_mem = $WORK_MEM|g" "$DEFAULT_CONFIG_PATH"
   sed -i "s|^\s*#*listen_addresses =.*|listen_addresses = '*'|g" "$DEFAULT_CONFIG_PATH"
+
+  # --- Optimasi Read (Baca) ---
+  sed -i "s|^\s*#*effective_cache_size =.*|effective_cache_size = $EFFECTIVE_CACHE_SIZE|g" "$DEFAULT_CONFIG_PATH"
+  sed -i "s|^\s*#*random_page_cost =.*|random_page_cost = 1.1|g" "$DEFAULT_CONFIG_PATH" # Asumsi menggunakan SSD
+
+  # --- Optimasi Write (Tulis) & Checkpoint ---
+  sed -i "s|^\s*#*maintenance_work_mem =.*|maintenance_work_mem = $MAINTENANCE_WORK_MEM|g" "$DEFAULT_CONFIG_PATH"
+  sed -i "s|^\s*#*wal_buffers =.*|wal_buffers = 16MB|g" "$DEFAULT_CONFIG_PATH"
+  sed -i "s|^\s*#*checkpoint_timeout =.*|checkpoint_timeout = 15min|g" "$DEFAULT_CONFIG_PATH"
+  sed -i "s|^\s*#*checkpoint_completion_target =.*|checkpoint_completion_target = 0.9|g" "$DEFAULT_CONFIG_PATH"
+  sed -i "s|^\s*#*max_wal_size =.*|max_wal_size = 2GB|g" "$DEFAULT_CONFIG_PATH"
+  sed -i "s|^\s*#*min_wal_size =.*|min_wal_size = 1GB|g" "$DEFAULT_CONFIG_PATH"
 }
 
 checkPostgreSQLIsRunning(){
