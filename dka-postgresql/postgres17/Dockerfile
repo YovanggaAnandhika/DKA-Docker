@@ -26,6 +26,12 @@ LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 RUN apk update && apk add --no-cache cgroup-tools tzdata htop nano dcron logrotate bash rsync ifupdown-ng su-exec \
     postgresql postgis postgresql-contrib postgresql-client && rm -rf /var/cache/apk/*
 
+# Install pg_partman from source so the extension is available for initdb
+RUN apk add --no-cache --virtual .build-deps git build-base postgresql-dev perl && \
+    git clone --depth 1 https://github.com/keithf4/pg_partman.git /tmp/pg_partman && \
+    cd /tmp/pg_partman && make && make install && \
+    rm -rf /tmp/pg_partman && apk del .build-deps
+
 # === 4. KONFIGURASI LINGKUNGAN / ENVIRONMENT ===
 # Mengatur Zona Waktu bawaan ke Waktu Indonesia Tengah
 ENV TZ=Asia/Makassar

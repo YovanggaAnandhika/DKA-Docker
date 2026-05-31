@@ -12,6 +12,25 @@ services:
         published: 5432
         protocol: tcp
         host_ip: 0.0.0.0
+    environment:
+      # PostgreSQL default account configuration
+      DKA_ROOT_USERNAME: postgres
+      DKA_ROOT_PASSWORD: postgres
+      DKA_DB_NAME: test
+      DKA_DB_USERNAME: test
+      DKA_DB_PASSWORD: test
+      DKA_DB_MAX_CONNECTION: 200
+      # Cron backup configuration
+      DKA_CRON_ENABLE: "true"
+      DKA_CRON_PRIODIC: "0 3 * * *"
+      # S3 / Wasabi upload configuration
+      DKA_S3_UPLOAD_ENABLE: "true"
+      DKA_S3_BUCKET: my-wasabi-bucket
+      DKA_S3_PATH: backups/postgres
+      DKA_S3_ENDPOINT: https://s3.wasabisys.com
+      DKA_S3_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: your_access_key
+      AWS_SECRET_ACCESS_KEY: your_secret_key
     deploy:
       resources:
         limits:
