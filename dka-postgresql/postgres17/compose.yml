@@ -21,16 +21,29 @@ services:
       DKA_DB_PASSWORD: test
       DKA_DB_MAX_CONNECTION: 200
       # Cron backup configuration
-      DKA_CRON_ENABLE: "true"
+      DKA_CRON_ENABLE: true
       DKA_CRON_PRIODIC: "0 3 * * *"
       # S3 / Wasabi upload configuration
-      DKA_S3_UPLOAD_ENABLE: "true"
+      DKA_S3_UPLOAD_ENABLE: true
       DKA_S3_BUCKET: my-wasabi-bucket
       DKA_S3_PATH: backups/postgres
       DKA_S3_ENDPOINT: https://s3.wasabisys.com
       DKA_S3_REGION: us-east-1
       AWS_ACCESS_KEY_ID: your_access_key
       AWS_SECRET_ACCESS_KEY: your_secret_key
+      # Auto maintenance / optimizer
+      DKA_MAINTENANCE_ENABLE: true
+      DKA_MAINTENANCE_CRON: "0 4 * * *"
+      DKA_MAINTENANCE_AT: "03:00"
+      DKA_MAINTENANCE_REINDEX_ENABLE: true
+      DKA_MAINTENANCE_REINDEX_MODE: smart
+      DKA_MAINTENANCE_REINDEX_DEAD_RATIO_THRESHOLD: 0.20
+      DKA_MAINTENANCE_REINDEX_MIN_DEAD_TUPLES: 100000
+      DKA_MAINTENANCE_REINDEX_INDEX_SCAN_THRESHOLD: 50
+      DKA_MAINTENANCE_REINDEX_INDEX_SIZE_THRESHOLD: 104857600
+      DKA_MAINTENANCE_VACUUM_ENABLE: true
+      DKA_MAINTENANCE_ANALYZE_ENABLE: true
+      DKA_MAINTENANCE_LOG: /var/log/postgresql/maintenance.log
     deploy:
       resources:
         limits:

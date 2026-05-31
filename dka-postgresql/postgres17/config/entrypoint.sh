@@ -20,11 +20,39 @@ DB_USERNAME=${DKA_DB_USERNAME:-test}
 DB_PASSWORD=${DKA_DB_PASSWORD:-test}
 DB_MAX_CONNECTION=${DKA_DB_MAX_CONNECTION:-200}
 
+# Auto maintenance / optimizer
+MAINTENANCE_ENABLE=${DKA_MAINTENANCE_ENABLE:-false}
+MAINTENANCE_CRON=${DKA_MAINTENANCE_CRON:-}
+MAINTENANCE_AT=${DKA_MAINTENANCE_AT:-03:00}
+MAINTENANCE_LOG=${DKA_MAINTENANCE_LOG:-/var/log/postgresql/maintenance.log}
+
 get_container_runtime() {
     if [ -d "/var/run/secrets/kubernetes.io" ]; then echo "KUBERNETES"
     elif [ -f /.dockerenv ]; then echo "DOCKER"
     elif grep -aq "container=lxc" /proc/1/environ 2>/dev/null; then echo "LXC"
     else echo "STANDALONE"; fi
+}
+
+export_cron_file() {
+  echo "Exporting cron files..."
+
+  if [ "$ENABLED_CRON" = "true" ]; then
+    for file in /usr/cron.d/*; do
+      [ -f "$file" ] || continue
+      cron_name=$(basename "$file")
+      echo "${CRON_PRIODIC} root /bin/sh $file" > "/etc/cron.d/$cron_name"
+    done
+  fi
+
+  if [ "$MAINTENANCE_ENABLE" = "true" ]; then
+    if [ -n "$MAINTENANCE_CRON" ]; then
+      schedule="$MAINTENANCE_CRON"
+    else
+      schedule=$(echo "$MAINTENANCE_AT" | awk -F: '{printf "%s %s * * *", $2, $1}')
+    fi
+
+    echo "${schedule} root /usr/local/bin/maintenance >> $MAINTENANCE_LOG 2>&1" > "/etc/cron.d/maintenance"
+  fi
 }
 
 # ==============================================================================
@@ -171,9 +199,14 @@ else
     set_memory
 fi
 
-# Jalankan Cron jika ENABLED
-if [ "$ENABLED_CRON" = "true" ]; then
+if [ "$ENABLED_CRON" = "true" ] || [ "$MAINTENANCE_ENABLE" = "true" ]; then
+  export_cron_file
+  touch "$MAINTENANCE_LOG" 2>/dev/null || true
+  chown postgres:postgres "$MAINTENANCE_LOG" 2>/dev/null || true
   crond && echo "⏰ Cron active."
+  if [ "$MAINTENANCE_ENABLE" = "true" ]; then
+    echo "🛠️ Auto maintenance enabled. Schedule: ${MAINTENANCE_CRON:-$MAINTENANCE_AT}" >> "$MAINTENANCE_LOG"
+  fi
 fi
 
 echo "🚀 Running Final Postgres Engine..."

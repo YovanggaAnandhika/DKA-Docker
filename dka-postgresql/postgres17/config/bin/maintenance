@@ -1,0 +1,64 @@
+#!/bin/sh
+
+# PostgreSQL maintenance helper
+# Supports VACUUM/ANALYZE and optional REINDEX per database.
+
+ROOT_USERNAME=${DKA_ROOT_USERNAME:-postgres}
+ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-postgres}
+DB_NAME=${DKA_MAINTENANCE_DB_NAME:-${DKA_DB_NAME:-test}}
+MAINTENANCE_ENABLE=${DKA_MAINTENANCE_ENABLE:-false}
+ENABLE_REINDEX=${DKA_MAINTENANCE_REINDEX_ENABLE:-false}
+REINDEX_MODE=${DKA_MAINTENANCE_REINDEX_MODE:-smart}
+REINDEX_DEAD_RATIO_THRESHOLD=${DKA_MAINTENANCE_REINDEX_DEAD_RATIO_THRESHOLD:-0.20}
+REINDEX_MIN_DEAD_TUPLES=${DKA_MAINTENANCE_REINDEX_MIN_DEAD_TUPLES:-100000}
+REINDEX_INDEX_SCAN_THRESHOLD=${DKA_MAINTENANCE_REINDEX_INDEX_SCAN_THRESHOLD:-50}
+REINDEX_INDEX_SIZE_THRESHOLD=${DKA_MAINTENANCE_REINDEX_INDEX_SIZE_THRESHOLD:-104857600}
+ENABLE_VACUUM=${DKA_MAINTENANCE_VACUUM_ENABLE:-true}
+ENABLE_ANALYZE=${DKA_MAINTENANCE_ANALYZE_ENABLE:-true}
+
+export PGPASSWORD="$ROOT_PASSWORD"
+
+if [ "$MAINTENANCE_ENABLE" != "true" ]; then
+  echo "Maintenance is disabled. Exiting."
+  exit 0
+fi
+
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting maintenance for database: $DB_NAME"
+
+if [ "$ENABLE_VACUUM" = "true" ]; then
+  echo "Running VACUUM (ANALYZE) on $DB_NAME"
+  psql -U "$ROOT_USERNAME" -d "$DB_NAME" -c "VACUUM (VERBOSE, ANALYZE);"
+fi
+
+if [ "$ENABLE_REINDEX" = "true" ]; then
+  echo "Checking whether REINDEX is needed (mode=$REINDEX_MODE)..."
+  do_reindex=false
+
+  if [ "$REINDEX_MODE" = "always" ]; then
+    do_reindex=true
+  else
+    dead_tables=$(psql -U "$ROOT_USERNAME" -d "$DB_NAME" -X -A -t -c "SELECT count(*) FROM pg_stat_user_tables WHERE n_dead_tup > GREATEST($REINDEX_MIN_DEAD_TUPLES, n_live_tup * $REINDEX_DEAD_RATIO_THRESHOLD);")
+    index_candidates=$(psql -U "$ROOT_USERNAME" -d "$DB_NAME" -X -A -t -c "SELECT count(*) FROM pg_stat_user_indexes ui JOIN pg_class ic ON ic.oid = ui.indexrelid WHERE ui.idx_scan < $REINDEX_INDEX_SCAN_THRESHOLD AND pg_relation_size(ic.oid) > $REINDEX_INDEX_SIZE_THRESHOLD;")
+
+    if [ "${dead_tables:-0}" -gt 0 ] || [ "${index_candidates:-0}" -gt 0 ]; then
+      do_reindex=true
+      echo "Smart reindex trigger: dead_tables=$dead_tables, index_candidates=$index_candidates"
+    else
+      echo "No strong reindex candidates found (dead_tables=$dead_tables, index_candidates=$index_candidates)."
+    fi
+  fi
+
+  if [ "$do_reindex" = "true" ]; then
+    echo "Running REINDEX DATABASE $DB_NAME"
+    psql -U "$ROOT_USERNAME" -d "$DB_NAME" -c "REINDEX DATABASE \"$DB_NAME\";"
+  else
+    echo "Skipping REINDEX for $DB_NAME."
+  fi
+fi
+
+if [ "$ENABLE_ANALYZE" = "true" ] && [ "$ENABLE_VACUUM" != "true" ]; then
+  echo "Running ANALYZE on $DB_NAME"
+  psql -U "$ROOT_USERNAME" -d "$DB_NAME" -c "ANALYZE;"
+fi
+
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Maintenance completed."
