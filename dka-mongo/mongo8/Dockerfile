@@ -1,4 +1,6 @@
-FROM debian:12-slim
+FROM debian:13-slim
+
+ARG TARGETARCH
 
 # Maintainer
 LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
@@ -13,7 +15,11 @@ LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 # Install dependencies in a single RUN command and clean up afterward
 RUN apt-get update && apt-get install -y gnupg curl bash procps tzdata cron nano logrotate \
     && curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor && \
-    echo "deb [signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" | tee /etc/apt/sources.list.d/mongodb-org-8.0.list  \
+    if [ "$TARGETARCH" = "arm64" ]; then \
+        echo "deb [signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg] http://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/8.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-8.0.list; \
+    else \
+        echo "deb [signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main" | tee /etc/apt/sources.list.d/mongodb-org-8.0.list; \
+    fi \
     && apt-get update && apt-get install -y --no-install-recommends mongodb-org mongodb-org-shell mongodb-org-tools mongodb-mongosh mongodb-org-mongos mongodb-org-database  \
     && rm -rf /var/lib/apt/lists/* && apt-get clean && rm -rf /tmp/* /var/tmp/*
 # Generate a keyfile for replica set authentication
