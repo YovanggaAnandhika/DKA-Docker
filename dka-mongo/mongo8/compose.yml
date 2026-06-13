@@ -3,7 +3,7 @@ name: dka-dev
 
 services:
   mongo:
-    image: yovanggaanandhika/mongo:12-slim-mongo-8.0.5
+    image: yovanggaanandhika/mongo:13-slim-mongo-8.0.5
     container_name: dka-dev-mongo
     hostname: dka-dev-mongo
     restart: always
