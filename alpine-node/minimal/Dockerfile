@@ -20,6 +20,13 @@ RUN apk update && apk add --no-cache openssl nodejs npm bash nano iputils-ping e
        else \
          echo "Bun not supported on architecture: $TARGETARCH. Skipping Bun installation."; \
        fi
+# Install cloudflared binary sesuai arsitektur
+RUN if [ "$TARGETARCH" = "amd64" ] || [ "$TARGETARCH" = "arm64" ] || [ "$TARGETARCH" = "386" ] || [ "$TARGETARCH" = "arm" ]; then \
+         curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$TARGETARCH" -o /usr/local/bin/cloudflared \
+         && chmod +x /usr/local/bin/cloudflared; \
+       else \
+         echo "Cloudflared not supported on architecture: $TARGETARCH. Skipping Cloudflared installation."; \
+       fi
 # remove cache and apt cleancertbot certbot-dns-cloudflare
 RUN rm -rf /var/cache/apk/* /tmp/* /var/tmp/* /root/.npm /root/.bun && apk cache clean
 #############################################################################
@@ -30,6 +37,7 @@ RUN adduser -S www-data -G www-data
 #############################################################################
 # Adding Directory
 #############################################################################
+RUN mkdir /root/.cloudflared && chmod -R 775 /root/.cloudflared
 
 #############################################################################
 # Adding Config
