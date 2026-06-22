@@ -70,7 +70,13 @@ else
     if [ -f "package.json" ]; then
         echo "Starting default entry point main in package.json"
         checkTunnelIsExist
-        node .
+        if { [ -f "bun.lockb" ] || [ -f "bun.lock" ]; } && command -v bun >/dev/null 2>&1; then
+            echo "⚡ Detected Bun lockfile. Running with Bun..."
+            bun .
+        else
+            echo "🟢 Running with Node..."
+            node .
+        fi
     else
         # If package.json doesn't exist, wait for background processes
         echo "package.json not found. recreated container with command. or create main point field in package.json file"

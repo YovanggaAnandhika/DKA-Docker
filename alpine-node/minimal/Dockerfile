@@ -12,9 +12,16 @@ LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 
 ARG TARGETARCH
 # Update Repo
-RUN apk update && apk add --no-cache openssl nodejs npm bash nano iputils-ping eudev-libs libusb tzdata curl protobuf-dev qt5-qtbase qt5-qtbase-x11 poppler-qt5 openresolv jq && npm install -g yarn
+RUN apk update && apk add --no-cache openssl nodejs npm bash nano iputils-ping eudev-libs libusb tzdata curl protobuf-dev qt5-qtbase qt5-qtbase-x11 poppler-qt5 openresolv jq libc6-compat gcompat \
+    && npm install -g yarn \
+    && if [ "$TARGETARCH" = "amd64" ] || [ "$TARGETARCH" = "arm64" ]; then \
+         curl -fsSL https://bun.sh/install | bash \
+         && mv /root/.bun/bin/bun /usr/local/bin/bun; \
+       else \
+         echo "Bun not supported on architecture: $TARGETARCH. Skipping Bun installation."; \
+       fi
 # remove cache and apt cleancertbot certbot-dns-cloudflare
-RUN rm -rf /var/cache/apk/* && apk cache clean
+RUN rm -rf /var/cache/apk/* /tmp/* /var/tmp/* /root/.npm /root/.bun && apk cache clean
 #############################################################################
 # End Base Dependencies
 #############################################################################
