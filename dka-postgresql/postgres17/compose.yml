@@ -34,7 +34,6 @@ services:
       # Auto maintenance / optimizer
       DKA_MAINTENANCE_ENABLE: true
       DKA_MAINTENANCE_CRON: "0 4 * * *"
-      DKA_MAINTENANCE_AT: "03:00"
       DKA_MAINTENANCE_REINDEX_ENABLE: true
       DKA_MAINTENANCE_REINDEX_MODE: smart
       DKA_MAINTENANCE_REINDEX_DEAD_RATIO_THRESHOLD: 0.20
