@@ -88,6 +88,17 @@ if [ "$(id -u)" = '0' ]; then
   # Direktori sistem lainnya tetap chown -R karena ukurannya sangat kecil
   chown -R postgres:postgres /var/run/postgresql /run/postgresql /var/log/postgresql /etc/cron.d
 
+  # --- CRON SETUP & START IN ROOT PHASE ---
+  if [ "$ENABLED_CRON" = "true" ] || [ "$MAINTENANCE_ENABLE" = "true" ]; then
+    export_cron_file
+    touch "$MAINTENANCE_LOG" 2>/dev/null || true
+    chown postgres:postgres "$MAINTENANCE_LOG" 2>/dev/null || true
+    crond && echo "⏰ Cron active."
+    if [ "$MAINTENANCE_ENABLE" = "true" ]; then
+      echo "🛠️ Auto maintenance enabled. Schedule: ${MAINTENANCE_CRON}" >> "$MAINTENANCE_LOG"
+    fi
+  fi
+
   echo "👤 Dropping privileges to postgres user..."
   exec su-exec postgres "$0" "$@"
 fi
@@ -200,16 +211,6 @@ if [ ! -f "$DATA_DIR/DKA_POSTGRESQL_INIT" ]; then
     touch "$DATA_DIR/DKA_POSTGRESQL_INIT"
 else
     set_memory
-fi
-
-if [ "$ENABLED_CRON" = "true" ] || [ "$MAINTENANCE_ENABLE" = "true" ]; then
-  export_cron_file
-  touch "$MAINTENANCE_LOG" 2>/dev/null || true
-  chown postgres:postgres "$MAINTENANCE_LOG" 2>/dev/null || true
-  crond && echo "⏰ Cron active."
-  if [ "$MAINTENANCE_ENABLE" = "true" ]; then
-    echo "🛠️ Auto maintenance enabled. Schedule: ${MAINTENANCE_CRON}" >> "$MAINTENANCE_LOG"
-  fi
 fi
 
 echo "🚀 Running Final Postgres Engine..."
