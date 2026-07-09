@@ -17,9 +17,9 @@ BACKUP_FILE="$BACKUP_DIR/${DB_NAME}_$DATE.sql.gz"
 # Optional S3/Wasabi upload settings
 DKA_S3_UPLOAD_ENABLE=${DKA_S3_UPLOAD_ENABLE:-false}
 DKA_S3_BUCKET=${DKA_S3_BUCKET:-}
-DKA_S3_PATH=${DKA_S3_PATH:-}
-DKA_S3_ENDPOINT=${DKA_S3_ENDPOINT:-https://s3.wasabisys.com}
-DKA_S3_REGION=${DKA_S3_REGION:-us-east-1}
+DKA_S3_PATH=${DKA_S3_PATH:-/}
+DKA_S3_ENDPOINT=${DKA_S3_ENDPOINT:-https://s3.ap-southeast-1.wasabisys.com}
+DKA_S3_REGION=${DKA_S3_REGION:-ap-southeast-1}
 
 # Pastikan direktori backup ada
 mkdir -p "$BACKUP_DIR"

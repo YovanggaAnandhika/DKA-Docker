@@ -12,15 +12,11 @@ DB_USER=${DKA_DB_USERNAME:-test}
 
 BACKUP_DIR="/backup"
 
-# --- 2. Ambil Daftar Backup ---
-# Mengambil 50 file terbaru berdasarkan waktu modifikasi
-# shellcheck disable=SC2207
-BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.sql.gz 2>/dev/null | head -n 50))
-
-if [ ${#BACKUP_FILES[@]} -eq 0 ]; then
-    echo "❌ Error: Tidak ada file backup (.sql.gz) ditemukan di $BACKUP_DIR"
-    exit 1
-fi
+# S3 / Wasabi configurations
+DKA_S3_BUCKET=${DKA_S3_BUCKET:-}
+DKA_S3_PATH=${DKA_S3_PATH:-/}
+DKA_S3_ENDPOINT=${DKA_S3_ENDPOINT:-https://s3.ap-southeast-1.wasabisys.com}
+DKA_S3_REGION=${DKA_S3_REGION:-ap-southeast-1}
 
 echo "----------------------------------------------------------"
 echo "🔄 POSTGRESQL RESTORE MANAGER (OVERWRITE MODE)"
@@ -29,23 +25,113 @@ echo "Database Target: $DB_NAME"
 echo "Host Target    : $DB_HOST"
 echo "----------------------------------------------------------"
 
-PS3="Pilih nomor file backup untuk di-restore: "
-MENU_OPTIONS=()
-for file in "${BACKUP_FILES[@]}"; do
-    FILE_SIZE=$(du -h "$file" | awk '{print $1}')
-    MENU_OPTIONS+=("$(basename "$file") ($FILE_SIZE)")
-done
+echo "Pilih Sumber Restore:"
+echo "1) Local Directory ($BACKUP_DIR)"
+echo "2) S3 / Wasabi Storage (s3://$DKA_S3_BUCKET)"
+read -p "Masukkan pilihan (1/2): " RESTORE_SOURCE_CHOICE
 
-select OPTION in "${MENU_OPTIONS[@]}"; do
-    if [ -n "$OPTION" ]; then
-        SELECTED_FILE=$(echo "$OPTION" | awk '{print $1}')
-        break
-    else
-        echo "⚠️ Pilihan tidak valid, silakan coba lagi."
+SELECTED_BACKUP_PATH=""
+SELECTED_FILE=""
+IS_S3=false
+
+if [ "$RESTORE_SOURCE_CHOICE" = "2" ]; then
+    # --- RESTORE DARI S3 ---
+    if [ -z "$DKA_S3_BUCKET" ]; then
+        echo "❌ Error: DKA_S3_BUCKET tidak didefinisikan!"
+        exit 1
     fi
-done
 
-SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE"
+    if ! command -v aws >/dev/null 2>&1; then
+        echo "❌ Error: aws CLI tidak ditemukan di container!"
+        exit 1
+    fi
+
+    S3_PREFIX="s3://$DKA_S3_BUCKET"
+    if [ -n "$DKA_S3_PATH" ]; then
+        S3_PREFIX="$S3_PREFIX/${DKA_S3_PATH#/}"
+    fi
+
+    echo "⏳ Mengambil daftar backup dari S3: $S3_PREFIX..."
+    # Ambil daftar file .sql.gz dari S3, urutkan agar yang terbaru di atas jika memungkinkan (atau tampilkan langsung)
+    # aws s3 ls mengembalikan baris format: YYYY-MM-DD HH:MM:SS Size Key
+    # Kita hanya tertarik pada file .sql.gz
+    # shell check disable=SC2207
+    S3_RAW_LIST=$(aws s3 ls "$S3_PREFIX/" --endpoint-url "$DKA_S3_ENDPOINT" --region "$DKA_S3_REGION" | grep "\.sql\.gz$")
+    
+    if [ -z "$S3_RAW_LIST" ]; then
+        echo "❌ Error: Tidak ada file backup (.sql.gz) ditemukan di S3 $S3_PREFIX/"
+        exit 1
+    fi
+
+    # Parsing list ke array
+    IFS=$'\n' read -rd '' -a S3_FILES_LINES <<< "$S3_RAW_LIST"
+
+    # Buat menu opsi S3
+    PS3="Pilih nomor file backup S3 untuk di-restore: "
+    MENU_OPTIONS=()
+    S3_KEYS=()
+    for line in "${S3_FILES_LINES[@]}"; do
+        # Format line: 2026-07-09 15:30:12  10245000 test_09-07-2026_15-30-00.sql.gz
+        FILE_KEY=$(echo "$line" | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//')
+        FILE_SIZE_BYTES=$(echo "$line" | awk '{print $3}')
+        # Convert bytes to human readable
+        FILE_SIZE=$(numfmt --to=iec-binary --suffix=B "$FILE_SIZE_BYTES" 2>/dev/null || echo "$((FILE_SIZE_BYTES / 1024)) KB")
+        MENU_OPTIONS+=("$FILE_KEY ($FILE_SIZE)")
+        S3_KEYS+=("$FILE_KEY")
+    done
+
+    select OPTION in "${MENU_OPTIONS[@]}"; do
+        if [ -n "$OPTION" ]; then
+            # Ambil key asli yang bersesuaian dengan indeks pilihan
+            for i in "${!MENU_OPTIONS[@]}"; do
+                if [ "${MENU_OPTIONS[$i]}" = "$OPTION" ]; then
+                    SELECTED_FILE="${S3_KEYS[$i]}"
+                    break 2
+                fi
+            done
+        else
+            echo "⚠️ Pilihan tidak valid, silakan coba lagi."
+        fi
+    done
+
+    SELECTED_BACKUP_PATH="/tmp/$SELECTED_FILE"
+    IS_S3=true
+
+    echo "⏳ Mengunduh $SELECTED_FILE dari S3..."
+    aws s3 cp "$S3_PREFIX/$SELECTED_FILE" "$SELECTED_BACKUP_PATH" --endpoint-url "$DKA_S3_ENDPOINT" --region "$DKA_S3_REGION"
+    if [ $? -ne 0 ]; then
+        echo "❌ Error: Gagal mengunduh file dari S3."
+        exit 1
+    fi
+else
+    # --- RESTORE DARI LOCAL ---
+    # shellcheck disable=SC2207
+    BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.sql.gz 2>/dev/null | head -n 50))
+
+    if [ ${#BACKUP_FILES[@]} -eq 0 ]; then
+        echo "❌ Error: Tidak ada file backup (.sql.gz) ditemukan di $BACKUP_DIR"
+        exit 1
+    fi
+
+    PS3="Pilih nomor file backup lokal untuk di-restore: "
+    MENU_OPTIONS=()
+    for file in "${BACKUP_FILES[@]}"; do
+        FILE_SIZE=$(du -h "$file" | awk '{print $1}')
+        MENU_OPTIONS+=("$(basename "$file") ($FILE_SIZE)")
+    done
+
+    select OPTION in "${MENU_OPTIONS[@]}"; do
+        if [ -n "$OPTION" ]; then
+            SELECTED_FILE=$(echo "$OPTION" | awk '{print $1}')
+            break
+        else
+            echo "⚠️ Pilihan tidak valid, silakan coba lagi."
+        fi
+    done
+
+    SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE"
+fi
+
 export PGPASSWORD=$ROOT_PASSWORD
 
 echo ""
@@ -53,6 +139,7 @@ echo "❗ PERINGATAN: Semua data di '$DB_NAME' akan DIHAPUS dan DIGANTI!"
 read -p "Apakah Anda yakin ingin melanjutkan? (y/n): " CONFIRM
 if [[ ! $CONFIRM =~ ^[Yy]$ ]]; then
     echo "❌ Restore dibatalkan."
+    [ "$IS_S3" = true ] && rm -f "$SELECTED_BACKUP_PATH"
     exit 0
 fi
 
@@ -60,23 +147,24 @@ echo "----------------------------------------------------------"
 echo "⏳ Memulai Proses Restore..."
 
 # --- 3. Membersihkan Koneksi Aktif ---
-# Mencegah error "database is being accessed by other users"
 echo "➡️ Memutus koneksi aktif ke database $DB_NAME..."
 psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d postgres -c \
 "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" >/dev/null 2>&1
 
 # --- 4. Persiapan Fondasi (PostGIS) ---
-# Karena dump menggunakan --no-owner dan --no-privileges, kita siapkan extension-nya dulu
 echo "➡️ Menyiapkan ekstensi PostGIS..."
 psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS postgis;" >/dev/null 2>&1
 
 # --- 5. Eksekusi Restore ---
 echo "➡️ Mengimpor data dari $SELECTED_FILE..."
-# Kita gunakan ROOT_USERNAME untuk restore agar perintah DROP TABLE (--clean) berjalan tanpa hambatan
 gunzip < "$SELECTED_BACKUP_PATH" | psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" --set ON_ERROR_STOP=on
+RESTORE_STATUS=${PIPESTATUS[1]}
+
+# Bersihkan file unduhan sementara jika berasal dari S3
+[ "$IS_S3" = true ] && rm -f "$SELECTED_BACKUP_PATH"
 
 # --- 6. Finalisasi Ownership ---
-if [ ${PIPESTATUS[1]} -eq 0 ]; then
+if [ $RESTORE_STATUS -eq 0 ]; then
     echo "➡️ Mengatur ulang hak milik (ownership) ke user: $DB_USER..."
     psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d postgres -c "ALTER DATABASE \"$DB_NAME\" OWNER TO \"$DB_USER\";" >/dev/null 2>&1
 
