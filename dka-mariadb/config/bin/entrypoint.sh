@@ -12,6 +12,11 @@ DB_NAME=${DKA_DB_NAME:-test}
 DB_USERNAME=${DKA_DB_USERNAME:-test}
 DB_PASSWORD=${DKA_DB_PASSWORD:-test}
 
+# Maintenance Env
+MAINTENANCE_ENABLE=${DKA_MAINTENANCE_ENABLE:-false}
+MAINTENANCE_CRON=${DKA_MAINTENANCE_CRON:-0 4 * * *}
+MAINTENANCE_LOG=${DKA_MAINTENANCE_LOG:-/var/log/mysql/maintenance.log}
+
 get_container_runtime() {
     if [ -d "/var/run/secrets/kubernetes.io" ]; then echo "KUBERNETES"
     elif [ -f /.dockerenv ]; then echo "DOCKER"
@@ -112,6 +117,7 @@ load_automation_sql_template() {
   echo "🚀  task sql file automation is complete [DONE]"
 }
 
+
 load_cron_scheduler(){
   # Menjalankan cron jika diaktifkan
   if [ "$ENABLED_CRON" = "true" ]; then
@@ -122,6 +128,13 @@ load_cron_scheduler(){
         echo "$CRON_PRIODIC /bin/bash $file >> /var/log/mysql/cron.log 2>&1" > "/etc/cron.d/$cron_name"
       fi
     done
+  fi
+
+  if [ "$MAINTENANCE_ENABLE" = "true" ]; then
+    echo "Exporting maintenance cron..."
+    touch "$MAINTENANCE_LOG" 2>/dev/null || true
+    echo "${MAINTENANCE_CRON} root /usr/local/bin/maintenance >> $MAINTENANCE_LOG 2>&1" > "/etc/cron.d/maintenance"
+    echo "🛠️ Auto maintenance enabled. Schedule: ${MAINTENANCE_CRON}" >> "$MAINTENANCE_LOG"
   fi
 }
 

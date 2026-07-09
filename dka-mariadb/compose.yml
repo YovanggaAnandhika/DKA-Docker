@@ -12,6 +12,19 @@ services:
       DKA_DB_USERNAME: dka
       DKA_DB_PASSWORD: Cyberhack2010
       DKA_CRON_ENABLE: true
+      DKA_CRON_PRIODIC: "0 3 * * *"
+      # S3 / Wasabi upload configuration
+      DKA_S3_UPLOAD_ENABLE: true
+      DKA_S3_BUCKET: my-wasabi-bucket
+      DKA_S3_PATH: backups/mariadb
+      DKA_S3_ENDPOINT: https://s3.ap-southeast-1.wasabisys.com
+      DKA_S3_REGION: ap-southeast-1
+      AWS_ACCESS_KEY_ID: your_access_key
+      AWS_SECRET_ACCESS_KEY: your_secret_key
+      # Auto maintenance
+      DKA_MAINTENANCE_ENABLE: true
+      DKA_MAINTENANCE_CRON: "0 4 * * *"
+      DKA_MAINTENANCE_LOG: /var/log/mysql/maintenance.log
     ports:
       - target: 3306
         published: 3306

@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# MariaDB maintenance helper
+# Supports CHECK/OPTIMIZE/ANALYZE on MariaDB databases.
+
+ROOT_USERNAME=${DKA_ROOT_USERNAME:-root}
+ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-root}
+MAINTENANCE_ENABLE=${DKA_MAINTENANCE_ENABLE:-false}
+MAINTENANCE_LOG=${DKA_MAINTENANCE_LOG:-/var/log/mysql/maintenance.log}
+
+if [ "$MAINTENANCE_ENABLE" != "true" ]; then
+  echo "Maintenance is disabled. Exiting."
+  exit 0
+fi
+
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting MariaDB maintenance..."
+
+ESCAPED_ROOT_PASSWORD=$(printf '%s' "$ROOT_PASSWORD" | sed 's/[&/]/\\&/g')
+
+# Run mariadbcheck to analyze and optimize all databases
+echo "Running mariadbcheck --check --all-databases..."
+mariadbcheck -u "$ROOT_USERNAME" -p"$ESCAPED_ROOT_PASSWORD" --all-databases --check
+
+echo "Running mariadbcheck --optimize --all-databases..."
+mariadbcheck -u "$ROOT_USERNAME" -p"$ESCAPED_ROOT_PASSWORD" --all-databases --optimize
+
+echo "Running mariadbcheck --analyze --all-databases..."
+mariadbcheck -u "$ROOT_USERNAME" -p"$ESCAPED_ROOT_PASSWORD" --all-databases --analyze
+
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Maintenance completed."

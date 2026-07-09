@@ -4,7 +4,9 @@ FROM alpine:3.21.0
 LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
 # Run update & Install Mariadb
 RUN apk update && apk add --no-cache cgroup-tools tzdata htop nano dcron logrotate bash rsync ifupdown-ng \
-    mariadb mariadb-client mariadb-server-utils && rm -rf /var/cache/apk/*
+    mariadb mariadb-client mariadb-server-utils bc py3-pip py3-setuptools py3-wheel && \
+    pip install --no-cache-dir --break-system-packages awscli && \
+    rm -rf /var/cache/apk/*
 # Set the timezone (e.g., Asia/Makassar)
 ENV TZ=Asia/Makassar
 # Copy Mariadb configuration file

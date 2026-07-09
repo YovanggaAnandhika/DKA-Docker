@@ -4,51 +4,137 @@ DB_USER="root"
 ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-root}
 BACKUP_DIR="/backup"
 
-# Get the list of up to 20 .sql.gz files sorted by modification time
-# shellcheck disable=SC2207
-# shellcheck disable=SC2012
-BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.sql.gz 2>/dev/null | head -n 50))
+# S3 / Wasabi configurations
+DKA_S3_BUCKET=${DKA_S3_BUCKET:-}
+DKA_S3_PATH=${DKA_S3_PATH:-/}
+DKA_S3_ENDPOINT=${DKA_S3_ENDPOINT:-https://s3.ap-southeast-1.wasabisys.com}
+DKA_S3_REGION=${DKA_S3_REGION:-ap-southeast-1}
 
-# If no files are found, display a message and exit
-if [ ${#BACKUP_FILES[@]} -eq 0 ]; then
-    echo "No backup files available."
-    exit 1
+echo "----------------------------------------------------------"
+echo "🔄 MARIADB RESTORE MANAGER"
+echo "----------------------------------------------------------"
+
+echo "Pilih Sumber Restore:"
+echo "1) Local Directory ($BACKUP_DIR)"
+echo "2) S3 / Wasabi Storage (s3://$DKA_S3_BUCKET)"
+read -p "Masukkan pilihan (1/2): " RESTORE_SOURCE_CHOICE
+
+SELECTED_BACKUP_PATH=""
+SELECTED_FILE=""
+IS_S3=false
+
+if [ "$RESTORE_SOURCE_CHOICE" = "2" ]; then
+    # --- RESTORE DARI S3 ---
+    if [ -z "$DKA_S3_BUCKET" ]; then
+        echo "❌ Error: DKA_S3_BUCKET tidak didefinisikan!"
+        exit 1
+    fi
+
+    if ! command -v aws >/dev/null 2>&1; then
+        echo "❌ Error: aws CLI tidak ditemukan di container!"
+        exit 1
+    fi
+
+    S3_PREFIX="s3://$DKA_S3_BUCKET"
+    if [ -n "$DKA_S3_PATH" ] && [ "$DKA_S3_PATH" != "/" ]; then
+        S3_PREFIX="$S3_PREFIX/${DKA_S3_PATH#/}"
+    fi
+
+    echo "⏳ Mengambil daftar backup dari S3: $S3_PREFIX..."
+    S3_RAW_LIST=$(aws s3 ls "$S3_PREFIX/" --endpoint-url "$DKA_S3_ENDPOINT" --region "$DKA_S3_REGION" | grep "\.sql\.gz$")
+    
+    if [ -z "$S3_RAW_LIST" ]; then
+        echo "❌ Error: Tidak ada file backup (.sql.gz) ditemukan di S3 $S3_PREFIX/"
+        exit 1
+    fi
+
+    # Parsing list ke array
+    IFS=$'\n' read -rd '' -a S3_FILES_LINES <<< "$S3_RAW_LIST"
+
+    # Buat menu opsi S3
+    PS3="Pilih nomor file backup S3 untuk di-restore: "
+    MENU_OPTIONS=()
+    S3_KEYS=()
+    for line in "${S3_FILES_LINES[@]}"; do
+        FILE_KEY=$(echo "$line" | awk '{$1=$2=$3=""; print $0}' | sed 's/^[ \t]*//')
+        FILE_SIZE_BYTES=$(echo "$line" | awk '{print $3}')
+        FILE_SIZE=$(numfmt --to=iec-binary --suffix=B "$FILE_SIZE_BYTES" 2>/dev/null || echo "$((FILE_SIZE_BYTES / 1024)) KB")
+        MENU_OPTIONS+=("$FILE_KEY ($FILE_SIZE)")
+        S3_KEYS+=("$FILE_KEY")
+    done
+
+    select OPTION in "${MENU_OPTIONS[@]}"; do
+        if [ -n "$OPTION" ]; then
+            for i in "${!MENU_OPTIONS[@]}"; do
+                if [ "${MENU_OPTIONS[$i]}" = "$OPTION" ]; then
+                    SELECTED_FILE="${S3_KEYS[$i]}"
+                    break 2
+                fi
+            done
+        else
+            echo "⚠️ Pilihan tidak valid, silakan coba lagi."
+        fi
+    done
+
+    SELECTED_BACKUP_PATH="/tmp/$SELECTED_FILE"
+    IS_S3=true
+
+    echo "⏳ Mengunduh $SELECTED_FILE dari S3..."
+    aws s3 cp "$S3_PREFIX/$SELECTED_FILE" "$SELECTED_BACKUP_PATH" --endpoint-url "$DKA_S3_ENDPOINT" --region "$DKA_S3_REGION"
+    if [ $? -ne 0 ]; then
+        echo "❌ Error: Gagal mengunduh file dari S3."
+        exit 1
+    fi
+else
+    # --- RESTORE DARI LOCAL ---
+    # shellcheck disable=SC2207
+    BACKUP_FILES=($(ls -1t $BACKUP_DIR/*.sql.gz 2>/dev/null | head -n 50))
+
+    if [ ${#BACKUP_FILES[@]} -eq 0 ]; then
+        echo "❌ Error: Tidak ada file backup (.sql.gz) ditemukan di $BACKUP_DIR"
+        exit 1
+    fi
+
+    PS3="Pilih nomor file backup lokal untuk di-restore: "
+    MENU_OPTIONS=()
+    for file in "${BACKUP_FILES[@]}"; do
+        FILE_SIZE=$(du -h "$file" | awk '{print $1}')
+        MENU_OPTIONS+=("$(basename "$file") ($FILE_SIZE)")
+    done
+
+    select OPTION in "${MENU_OPTIONS[@]}"; do
+        if [ -n "$OPTION" ]; then
+            SELECTED_FILE=$(echo "$OPTION" | awk '{print $1}')
+            break
+        else
+            echo "⚠️ Pilihan tidak valid, silakan coba lagi."
+        fi
+    done
+
+    SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE"
 fi
 
-echo "Available backup files (showing up to 50 most recent backups):"
-PS3="Select a backup file to restore: "
+echo ""
+echo "❗ PERINGATAN: Semua database akan DIHAPUS dan DIGANTI dengan backup ini!"
+read -p "Apakah Anda yakin ingin melanjutkan? (y/n): " CONFIRM
+if [[ ! $CONFIRM =~ ^[Yy]$ ]]; then
+    echo "❌ Restore dibatalkan."
+    [ "$IS_S3" = true ] && rm -f "$SELECTED_BACKUP_PATH"
+    exit 0
+fi
 
-# Build the menu options (name + size)
-MENU_OPTIONS=()
-for file in "${BACKUP_FILES[@]}"; do
-    FILE_SIZE=$(du -h "$file" | awk '{print $1}')
-    MENU_OPTIONS+=("$(basename "$file" .sql.gz) ($FILE_SIZE)")
-done
-
-# Display menu for selecting a file
-select CHOICE in "${MENU_OPTIONS[@]}"; do
-    # Get the selected file name without the size
-    SELECTED_FILE=$(echo "$CHOICE" | awk -F' ' '{print $1}')
-
-    # Check if the user made a valid selection
-    if [ -z "$SELECTED_FILE" ]; then
-        echo "Invalid selection, please choose a file."
-    else
-        echo "Selected backup file: $SELECTED_FILE"
-        break
-    fi
-done
-
-# Get the full path of the selected backup file
-SELECTED_BACKUP_PATH="$BACKUP_DIR/$SELECTED_FILE.sql.gz"
-echo "Restoring database from $SELECTED_BACKUP_PATH..."
-
+echo "Restoring database dari $SELECTED_FILE..."
 ESCAPED_ROOT_PASSWORD=$(printf '%s' "$ROOT_PASSWORD" | sed 's/[&/]/\\&/g')
-# Restore the selected backup file
+
 gunzip < "$SELECTED_BACKUP_PATH" | mariadb -u $DB_USER -p"$ESCAPED_ROOT_PASSWORD"
-# shellcheck disable=SC2181
-if [ $? -eq 0 ]; then
-    echo "Restore completed successfully."
+RESTORE_STATUS=${PIPESTATUS[1]}
+
+# Bersihkan file unduhan sementara jika berasal dari S3
+[ "$IS_S3" = true ] && rm -f "$SELECTED_BACKUP_PATH"
+
+if [ $RESTORE_STATUS -eq 0 ]; then
+    echo "✅ SUCCESS: Database berhasil dipulihkan."
 else
-    echo "Restore failed."
+    echo "❌ ERROR: Terjadi kesalahan saat proses restore."
+    exit 1
 fi
