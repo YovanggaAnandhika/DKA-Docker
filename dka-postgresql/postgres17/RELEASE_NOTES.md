@@ -6,7 +6,14 @@ Release notes for the PostgreSQL 17.0 Docker image (`yovanggaanandhika/postgresq
 
 ## 🚀 Key Highlights & Changes
 
-### 1. Auto Maintenance & Optimizer System
+### 1. Interactive S3 Backup Restore Selection (Technical)
+* **Restore Utility Enhancements**:
+  * The `restore` utility has been upgraded to support restoring from both **Local Directory** (`/backup`) and **S3 / Wasabi Storage**.
+  * Dynamic listing of backups directly from S3 using the AWS CLI (`aws s3 ls`) with human-readable file sizes.
+  * Automatic selection, download, restore, and cleanup of the temporary dump file from `/tmp/` to optimize resource management.
+  * Added fallback configuration for endpoint and region: `DKA_S3_ENDPOINT` defaults to `https://s3.ap-southeast-1.wasabisys.com` and `DKA_S3_REGION` to `ap-southeast-1`. Default `DKA_S3_PATH` is set to `/`.
+
+### 2. Auto Maintenance & Optimizer System (Technical)
 * **Automatic Database Optimizer (`maintenance` script)**:
   * Automatically handles `VACUUM (VERBOSE, ANALYZE)` and `ANALYZE` tasks for database housekeeping.
   * **Smart Reindexing Mode**: Automatically calculates if index rebuilding (`REINDEX DATABASE`) is needed based on:
@@ -15,18 +22,26 @@ Release notes for the PostgreSQL 17.0 Docker image (`yovanggaanandhika/postgresq
   * Support for `always` or `smart` reindexing modes.
 * **Cron Scheduling**: Runs automatically at specified cron schedules (`DKA_MAINTENANCE_CRON` or hourly/daily via `DKA_MAINTENANCE_AT` timezone-aligned execution) with log routing to `/var/log/postgresql/maintenance.log`.
 
-### 2. Built-in `pg_partman` Extension
+### 3. Built-in `pg_partman` Extension (Technical)
 * Automated build and installation of Keith Fiske's popular partition management extension **`pg_partman`** directly from source.
 * Easily create and manage time-series or ID-based partitions at schema level out-of-the-box.
 
-### 3. Integrated S3/Wasabi Cloud Backup
+### 4. Integrated S3/Wasabi Cloud Backup (Technical)
 * Automated Cron-scheduled backup options (`DKA_CRON_ENABLE`, `DKA_CRON_PRIODIC`).
 * In-container backup uploading straight to Amazon S3 or Wasabi-compliant storage with fully-configurable endpoints, paths, regions, and access keys.
 
-### 4. Alpine Base & Native Privilege Isolation
+### 5. Alpine Base & Native Privilege Isolation (Technical)
 * Lightweight base image footprint based on Alpine Linux.
 * Employs `su-exec` for clean privilege dropping from `root` to the `postgres` user during boot, preserving process ID 1 for proper SIGTERM handling and graceful shutdown.
 * Included system tools: `cgroup-tools`, `htop`, `nano`, `dcron`, `logrotate`, `rsync`, and `ifupdown-ng`.
+
+---
+
+## 👥 Non-Technical Release Summary
+This release makes database management more reliable and automated for operational teams. 
+* **Simplified Recovery**: Operators can now restore databases directly by selecting backup files stored in the cloud (S3/Wasabi) from an interactive menu inside the container, eliminating the need to manually download, transfer, or unzip backups.
+* **Cost-Efficient Storage Defaults**: Default cloud backups are now routed to Wasabi's Southeast Asia region (`ap-southeast-1`) by default, offering faster transfer speeds and lower latencies for regional deployments.
+* **Automated Housekeeping**: Automatically cleans up unused indexes and optimizes database tables without manual intervention, keeping your application performing fast.
 
 ---
 
@@ -57,8 +72,8 @@ services:
       DKA_S3_UPLOAD_ENABLE: true
       DKA_S3_BUCKET: dka-backups-bucket
       DKA_S3_PATH: backups/postgres
-      DKA_S3_ENDPOINT: https://s3.wasabisys.com
-      DKA_S3_REGION: us-east-1
+      DKA_S3_ENDPOINT: https://s3.ap-southeast-1.wasabisys.com
+      DKA_S3_REGION: ap-southeast-1
       AWS_ACCESS_KEY_ID: your_access_key
       AWS_SECRET_ACCESS_KEY: your_secret_key
 
