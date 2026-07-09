@@ -26,7 +26,7 @@ LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 RUN apk add --no-cache \
         cgroup-tools tzdata htop nano dcron logrotate bash rsync ifupdown-ng su-exec \
         postgresql postgis postgresql-contrib postgresql-client bc && \
-    apk add --no-cache aws-cli --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community && \
+    apk add --no-cache aws-cli --repository=https://dl-cdn.alpinelinux.org/alpine/v3.21/community && \
     apk add --no-cache --virtual .build-deps git build-base postgresql-dev perl && \
     git clone --depth 1 https://github.com/keithf4/pg_partman.git /tmp/pg_partman && \
     cd /tmp/pg_partman && make && make install && \
