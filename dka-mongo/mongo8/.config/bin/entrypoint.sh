@@ -102,16 +102,32 @@ running_after_init_file() {
   fi
 }
 
+# Maintenance Env
+export DKA_MAINTENANCE_ENABLE=${DKA_MAINTENANCE_ENABLE:-false}
+export DKA_MAINTENANCE_CRON=${DKA_MAINTENANCE_CRON:-0 4 * * *}
+export DKA_MAINTENANCE_LOG=${DKA_MAINTENANCE_LOG:-/var/log/mongodb/maintenance.log}
+
 export_cron_file() {
-  if [ "$DKA_CRON_ENABLE" = "true" ]; then
+  if [ "$DKA_CRON_ENABLE" = "true" ] || [ "$DKA_MAINTENANCE_ENABLE" = "true" ]; then
     log_info "Exporting cron files to /etc/cron.d/..."
-    for file in /usr/cron.d/*; do
-      if [ -x "$file" ]; then
-        cron_name=$(basename "$file")
-        echo "${DKA_CRON_PRIODIC} root /bin/bash $file >> /var/log/mongodb/cron.log 2>&1" > "/etc/cron.d/$cron_name"
-        chmod 0644 "/etc/cron.d/$cron_name"
-      fi
-    done
+    
+    if [ "$DKA_CRON_ENABLE" = "true" ]; then
+      for file in /usr/cron.d/*; do
+        if [ -x "$file" ]; then
+          cron_name=$(basename "$file")
+          echo "${DKA_CRON_PRIODIC} root /bin/bash $file >> /var/log/mongodb/cron.log 2>&1" > "/etc/cron.d/$cron_name"
+          chmod 0644 "/etc/cron.d/$cron_name"
+        fi
+      done
+    fi
+
+    if [ "$DKA_MAINTENANCE_ENABLE" = "true" ]; then
+      touch "$DKA_MAINTENANCE_LOG" 2>/dev/null || true
+      echo "${DKA_MAINTENANCE_CRON} root /usr/local/bin/maintenance >> $DKA_MAINTENANCE_LOG 2>&1" > "/etc/cron.d/maintenance"
+      chmod 0644 "/etc/cron.d/maintenance"
+      echo "🛠️ Auto maintenance enabled. Schedule: ${DKA_MAINTENANCE_CRON}" >> "$DKA_MAINTENANCE_LOG"
+    fi
+
     cron && log_success "Crontab scheduler is active."
   fi
 }

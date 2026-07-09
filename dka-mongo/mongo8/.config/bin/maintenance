@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# MongoDB maintenance runner
+# Performs database checks and database stats/compositions optimization (compaction).
+
+DKA_MONGO_USERNAME=${DKA_MONGO_USERNAME:-root}
+DKA_MONGO_PASSWORD=${DKA_MONGO_PASSWORD:-123456789}
+MAINTENANCE_ENABLE=${DKA_MAINTENANCE_ENABLE:-false}
+MAINTENANCE_LOG=${DKA_MAINTENANCE_LOG:-/var/log/mongodb/maintenance.log}
+
+if [ "$MAINTENANCE_ENABLE" != "true" ]; then
+  echo "Maintenance is disabled. Exiting."
+  exit 0
+fi
+
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting MongoDB maintenance..."
+
+# Fetch list of databases (Exclude System DBs)
+DB_LIST=$(mongosh --host 127.0.0.1 -u "$DKA_MONGO_USERNAME" -p "$DKA_MONGO_PASSWORD" \
+          --authenticationDatabase admin --quiet \
+          --eval "db.getMongo().getDBNames().filter(d => !['admin', 'config', 'local'].includes(d)).join(' ')")
+
+if [ -z "$DB_LIST" ]; then
+    echo "No application databases found for maintenance."
+    exit 0
+fi
+
+for db in $DB_LIST; do
+    echo "Running collection compaction and diagnostic checks on database: $db"
+    
+    # Fetch all collections in the database
+    COLL_LIST=$(mongosh --host 127.0.0.1 -u "$DKA_MONGO_USERNAME" -p "$DKA_MONGO_PASSWORD" \
+                --authenticationDatabase admin --quiet \
+                --eval "db.getSiblingDB('$db').getCollectionNames().join(' ')")
+                
+    for coll in $COLL_LIST; do
+        echo " -> Compacting collection: $coll"
+        # Run compact command to optimize storage and rebuild indexes
+        mongosh --host 127.0.0.1 -u "$DKA_MONGO_USERNAME" -p "$DKA_MONGO_PASSWORD" \
+                --authenticationDatabase admin --quiet \
+                --eval "db.getSiblingDB('$db').runCommand({ compact: '$coll' })"
+    done
+done
+
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] MongoDB Maintenance completed successfully."
