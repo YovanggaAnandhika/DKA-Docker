@@ -22,8 +22,7 @@ DB_MAX_CONNECTION=${DKA_DB_MAX_CONNECTION:-200}
 
 # Auto maintenance / optimizer
 MAINTENANCE_ENABLE=${DKA_MAINTENANCE_ENABLE:-false}
-MAINTENANCE_CRON=${DKA_MAINTENANCE_CRON:-}
-MAINTENANCE_AT=${DKA_MAINTENANCE_AT:-03:00}
+MAINTENANCE_CRON=${DKA_MAINTENANCE_CRON:-0 3 * * *}
 MAINTENANCE_LOG=${DKA_MAINTENANCE_LOG:-/var/log/postgresql/maintenance.log}
 
 get_container_runtime() {
@@ -45,13 +44,7 @@ export_cron_file() {
   fi
 
   if [ "$MAINTENANCE_ENABLE" = "true" ]; then
-    if [ -n "$MAINTENANCE_CRON" ]; then
-      schedule="$MAINTENANCE_CRON"
-    else
-      schedule=$(echo "$MAINTENANCE_AT" | awk -F: '{printf "%s %s * * *", $2, $1}')
-    fi
-
-    echo "${schedule} root /usr/local/bin/maintenance >> $MAINTENANCE_LOG 2>&1" > "/etc/cron.d/maintenance"
+    echo "${MAINTENANCE_CRON} root /usr/local/bin/maintenance >> $MAINTENANCE_LOG 2>&1" > "/etc/cron.d/maintenance"
   fi
 }
 
@@ -215,7 +208,7 @@ if [ "$ENABLED_CRON" = "true" ] || [ "$MAINTENANCE_ENABLE" = "true" ]; then
   chown postgres:postgres "$MAINTENANCE_LOG" 2>/dev/null || true
   crond && echo "⏰ Cron active."
   if [ "$MAINTENANCE_ENABLE" = "true" ]; then
-    echo "🛠️ Auto maintenance enabled. Schedule: ${MAINTENANCE_CRON:-$MAINTENANCE_AT}" >> "$MAINTENANCE_LOG"
+    echo "🛠️ Auto maintenance enabled. Schedule: ${MAINTENANCE_CRON}" >> "$MAINTENANCE_LOG"
   fi
 fi
 
