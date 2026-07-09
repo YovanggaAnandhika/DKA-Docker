@@ -58,7 +58,7 @@ COPY config/healthcheck.sh /usr/local/bin/healthcheck.sh
 # Memberi akses Eksekusi Skrip agar OS bisa menjalankan Bash-nya
 RUN chmod +x /usr/local/bin/*
 # Pastikan cron dimiliki oleh perizinan sistem Postgres
-RUN chown -R postgres:postgres /etc/cron.d/
+RUN mkdir -p /etc/cron.d/ && chown -R postgres:postgres /etc/cron.d/
 
 # === 6. INISIALISASI STRUKTUR SQL BARU (INITIAL RUN) ===
 # Menyalin kumpulan file (.sql / .tmpl) bawaan yang tugasnya otomatis dieksekusi SECARA SEKALI SAJA jika database masih kosongan pertama kali (First Run).

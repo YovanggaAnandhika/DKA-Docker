@@ -83,7 +83,17 @@ if [ "$(id -u)" = '0' ]; then
 
   # Pastikan struktur folder dan izin akses tepat sebelum drop privilege
   mkdir -p /var/run/postgresql /run/postgresql "$DATA_DIR" /var/log/postgresql
-  chown -R postgres:postgres /var/run/postgresql /run/postgresql "$DATA_DIR" /var/log/postgresql /etc/cron.d
+
+  # Optimasi chown: Hindari chown -R secara rekursif pada DATA_DIR jika sudah dimiliki oleh postgres (UID 70)
+  # untuk mencegah startup delay/timeout pada volume basis data yang sangat besar.
+  if [ "$(stat -c '%U' "$DATA_DIR" 2>/dev/null)" = 'postgres' ] || [ "$(stat -c '%u' "$DATA_DIR" 2>/dev/null)" = '70' ]; then
+    chown postgres:postgres "$DATA_DIR"
+  else
+    chown -R postgres:postgres "$DATA_DIR"
+  fi
+
+  # Direktori sistem lainnya tetap chown -R karena ukurannya sangat kecil
+  chown -R postgres:postgres /var/run/postgresql /run/postgresql /var/log/postgresql /etc/cron.d
 
   echo "👤 Dropping privileges to postgres user..."
   exec su-exec postgres "$0" "$@"
