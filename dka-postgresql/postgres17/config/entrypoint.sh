@@ -152,6 +152,20 @@ set_memory() {
   sed -i "s|^\s*#*checkpoint_completion_target =.*|checkpoint_completion_target = 0.9|g" "$DEFAULT_CONFIG_PATH"
   sed -i "s|^\s*#*max_wal_size =.*|max_wal_size = 2GB|g" "$DEFAULT_CONFIG_PATH"
   sed -i "s|^\s*#*min_wal_size =.*|min_wal_size = 1GB|g" "$DEFAULT_CONFIG_PATH"
+
+  # --- Extensions Background Worker ---
+  # pg_partman_bgw WAJIB dimuat via shared_preload_libraries agar auto-maintenance partisi berjalan.
+  # Tidak cukup hanya CREATE EXTENSION — background worker harus diload saat PostgreSQL startup.
+  if grep -q "^\s*shared_preload_libraries" "$DEFAULT_CONFIG_PATH"; then
+    # Jika sudah ada entri, tambahkan pg_partman_bgw jika belum tercantum
+    if ! grep -q "pg_partman_bgw" "$DEFAULT_CONFIG_PATH"; then
+      sed -i "s|^\s*shared_preload_libraries\s*=\s*'\(.*\)'|shared_preload_libraries = '\1,pg_partman_bgw'|g" "$DEFAULT_CONFIG_PATH"
+    fi
+  else
+    # Tambahkan baris baru jika belum ada sama sekali
+    echo "shared_preload_libraries = 'pg_partman_bgw'" >> "$DEFAULT_CONFIG_PATH"
+  fi
+  echo "⚙️  shared_preload_libraries: pg_partman_bgw dimuat."
 }
 
 checkPostgreSQLIsRunning(){
