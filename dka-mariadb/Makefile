@@ -1,5 +1,5 @@
 REPOSITORY_NAME=yovanggaanandhika/mariadb
-TAG_NAME=full
+TAG_NAME=latest
 
 default:
 	docker buildx build -t ${REPOSITORY_NAME}:${TAG_NAME} --load .
