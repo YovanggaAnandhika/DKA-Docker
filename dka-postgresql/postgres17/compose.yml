@@ -1,11 +1,11 @@
-name: dka-database-postgresql
+name: dka-database-postgresql-ms
 
 services:
 
-  postgresql:
+  postgresql-master:
     image: yovanggaanandhika/postgresql:17.0
-    container_name: dka-database-postgresql
-    hostname: dka-database-postgresql
+    container_name: dka-postgresql-master
+    hostname: dka-postgresql-master
     restart: always
     ports:
       - target: 5432
@@ -13,6 +13,11 @@ services:
         protocol: tcp
         host_ip: 0.0.0.0
     environment:
+      # Replication Settings (Master)
+      DKA_REPLICATION_MODE: master
+      DKA_REPLICATION_USER: replicator
+      DKA_REPLICATION_PASSWORD: replicator_pass
+      
       # PostgreSQL default account configuration
       DKA_ROOT_USERNAME: postgres
       DKA_ROOT_PASSWORD: postgres
@@ -20,51 +25,66 @@ services:
       DKA_DB_USERNAME: test
       DKA_DB_PASSWORD: test
       DKA_DB_MAX_CONNECTION: 200
-      # Cron backup configuration
+      
+      # Cron & Maintenance
       DKA_CRON_ENABLE: true
-      DKA_CRON_PRIODIC: "0 3 * * *"
-      # S3 / Wasabi upload configuration
-      DKA_S3_UPLOAD_ENABLE: true
-      DKA_S3_BUCKET: my-wasabi-bucket
-      DKA_S3_PATH: backups/postgres
-      DKA_S3_ENDPOINT: https://s3.wasabisys.com
-      DKA_S3_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: your_access_key
-      AWS_SECRET_ACCESS_KEY: your_secret_key
-      # Auto maintenance / optimizer
       DKA_MAINTENANCE_ENABLE: true
-      DKA_MAINTENANCE_CRON: "0 4 * * *"
-      DKA_MAINTENANCE_REINDEX_ENABLE: true
-      DKA_MAINTENANCE_REINDEX_MODE: smart
-      DKA_MAINTENANCE_REINDEX_DEAD_RATIO_THRESHOLD: 0.20
-      DKA_MAINTENANCE_REINDEX_MIN_DEAD_TUPLES: 100000
-      DKA_MAINTENANCE_REINDEX_INDEX_SCAN_THRESHOLD: 50
-      DKA_MAINTENANCE_REINDEX_INDEX_SIZE_THRESHOLD: 104857600
-      DKA_MAINTENANCE_VACUUM_ENABLE: true
-      DKA_MAINTENANCE_ANALYZE_ENABLE: true
-      DKA_MAINTENANCE_LOG: /var/log/postgresql/maintenance.log
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1.0'
-        reservations:
-          memory: 500M
-          cpus: '0.8'
     volumes:
       - type: volume
-        source: data
+        source: data-master
         target: /var/lib/postgresql
       - type: volume
-        source: backup
+        source: backup-master
+        target: /backup
+    networks:
+      - default
+
+  postgresql-slave:
+    image: yovanggaanandhika/postgresql:17.0
+    container_name: dka-postgresql-slave
+    hostname: dka-postgresql-slave
+    restart: always
+    ports:
+      - target: 5432
+        published: 5433  # Port 5433 untuk Slave
+        protocol: tcp
+        host_ip: 0.0.0.0
+    environment:
+      # Replication Settings (Slave)
+      DKA_REPLICATION_MODE: slave
+      DKA_PEER_HOST: postgresql-master
+      DKA_REPLICATION_USER: replicator
+      DKA_REPLICATION_PASSWORD: replicator_pass
+      
+      # Konfigurasi disamakan persis dengan Master
+      DKA_ROOT_USERNAME: postgres
+      DKA_ROOT_PASSWORD: postgres
+      DKA_DB_NAME: test
+      DKA_DB_USERNAME: test
+      DKA_DB_PASSWORD: test
+      DKA_DB_MAX_CONNECTION: 200
+      
+      # Cron & Maintenance
+      DKA_CRON_ENABLE: true
+      DKA_MAINTENANCE_ENABLE: true
+    volumes:
+      - type: volume
+        source: data-slave
+        target: /var/lib/postgresql
+      - type: volume
+        source: backup-slave
         target: /backup
     networks:
       - default
 
 volumes:
-  data:
+  data-master:
     driver: local
-  backup:
+  backup-master:
+    driver: local
+  data-slave:
+    driver: local
+  backup-slave:
     driver: local
 
 networks:

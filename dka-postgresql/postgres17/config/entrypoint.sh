@@ -20,6 +20,12 @@ DB_USERNAME=${DKA_DB_USERNAME:-test}
 DB_PASSWORD=${DKA_DB_PASSWORD:-test}
 DB_MAX_CONNECTION=${DKA_DB_MAX_CONNECTION:-200}
 
+# Konfigurasi Replikasi Master-Slave
+DKA_REPLICATION_MODE=${DKA_REPLICATION_MODE:-none}
+DKA_PEER_HOST=${DKA_PEER_HOST:-}
+DKA_REPLICATION_USER=${DKA_REPLICATION_USER:-replicator}
+DKA_REPLICATION_PASSWORD=${DKA_REPLICATION_PASSWORD:-replicator_pass}
+
 # Auto maintenance / optimizer
 MAINTENANCE_ENABLE=${DKA_MAINTENANCE_ENABLE:-false}
 MAINTENANCE_CRON=${DKA_MAINTENANCE_CRON:-0 3 * * *}
@@ -110,8 +116,12 @@ fi
 # ==============================================================================
 
 set_hba() {
-  echo "host    all             all             0.0.0.0/0            scram-sha-256" >> "$DEFAULT_CONFIG_HBA_PATH"
-  echo "host    all             all             ::/0                 scram-sha-256" >> "$DEFAULT_CONFIG_HBA_PATH"
+  grep -q "host.*all.*all.*0.0.0.0/0" "$DEFAULT_CONFIG_HBA_PATH" || echo "host    all             all             0.0.0.0/0            scram-sha-256" >> "$DEFAULT_CONFIG_HBA_PATH"
+  grep -q "host.*all.*all.*::/0" "$DEFAULT_CONFIG_HBA_PATH" || echo "host    all             all             ::/0                 scram-sha-256" >> "$DEFAULT_CONFIG_HBA_PATH"
+
+  if [ "$DKA_REPLICATION_MODE" = "master" ]; then
+    grep -q "host.*replication.*all.*0.0.0.0/0" "$DEFAULT_CONFIG_HBA_PATH" || echo "host    replication     all             0.0.0.0/0            scram-sha-256" >> "$DEFAULT_CONFIG_HBA_PATH"
+  fi
 }
 
 set_memory() {
@@ -142,6 +152,13 @@ set_memory() {
   sed -i "s|^\s*#*max_connections =.*|max_connections = $DB_MAX_CONNECTION|g" "$DEFAULT_CONFIG_PATH"
   sed -i "s|^\s*#*work_mem =.*|work_mem = $WORK_MEM|g" "$DEFAULT_CONFIG_PATH"
   sed -i "s|^\s*#*listen_addresses =.*|listen_addresses = '*'|g" "$DEFAULT_CONFIG_PATH"
+
+  # --- Konfigurasi Replikasi ---
+  if [ "$DKA_REPLICATION_MODE" = "master" ]; then
+    sed -i "s|^\s*#*wal_level =.*|wal_level = replica|g" "$DEFAULT_CONFIG_PATH"
+    sed -i "s|^\s*#*max_wal_senders =.*|max_wal_senders = 10|g" "$DEFAULT_CONFIG_PATH"
+    sed -i "s|^\s*#*max_replication_slots =.*|max_replication_slots = 10|g" "$DEFAULT_CONFIG_PATH"
+  fi
 
   # --- Optimasi Read (Baca) ---
   sed -i "s|^\s*#*effective_cache_size =.*|effective_cache_size = $EFFECTIVE_CACHE_SIZE|g" "$DEFAULT_CONFIG_PATH"
@@ -201,6 +218,14 @@ set_users_and_grant() {
   psql -U "$ROOT_USERNAME" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS postgis;"
 }
 
+check_and_create_replication_user() {
+  if [ "$DKA_REPLICATION_MODE" = "master" ]; then
+    echo "👥 Verifying replication user: $DKA_REPLICATION_USER"
+    psql -U "$ROOT_USERNAME" -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DKA_REPLICATION_USER'" | grep -q 1 || \
+    psql -U "$ROOT_USERNAME" -c "CREATE ROLE $DKA_REPLICATION_USER WITH REPLICATION LOGIN PASSWORD '$DKA_REPLICATION_PASSWORD';"
+  fi
+}
+
 clear_postmaster_pid() {
   echo "🧹 Cleaning stale files..."
   rm -f "$DATA_DIR/postmaster.pid"
@@ -213,25 +238,50 @@ echo "--- DKA POSTGRESQL STARTING ---"
 clear_postmaster_pid
 
 if [ ! -f "$DATA_DIR/DKA_POSTGRESQL_INIT" ]; then
-    echo "🚀 First Run: Initiating database..."
-    pg_ctl init -D "$DATA_DIR"
-    initiate_postgresql
-    set_users_and_grant
+    if [ "$DKA_REPLICATION_MODE" = "slave" ]; then
+        echo "🚀 First Run: Initiating Slave from Primary ($DKA_PEER_HOST)..."
+        if [ -z "$DKA_PEER_HOST" ]; then
+            echo "❌ ERROR: DKA_PEER_HOST is required for slave mode."
+            exit 1
+        fi
+        
+        # Wait for primary to be ready
+        until PGPASSWORD=$DKA_REPLICATION_PASSWORD psql -h "$DKA_PEER_HOST" -U "$DKA_REPLICATION_USER" -d postgres -c '\q' >/dev/null 2>&1; do
+            echo "⏳ Waiting for Primary ($DKA_PEER_HOST) to be ready..."
+            sleep 3
+        done
+        
+        # Clean data dir and run basebackup
+        rm -rf "$DATA_DIR"/*
+        PGPASSWORD=$DKA_REPLICATION_PASSWORD pg_basebackup -h "$DKA_PEER_HOST" -D "$DATA_DIR" -U "$DKA_REPLICATION_USER" -Fp -Xs -P -R
+        
+        set_memory
+        touch "$DATA_DIR/DKA_POSTGRESQL_INIT"
+    else
+        echo "🚀 First Run: Initiating database..."
+        pg_ctl init -D "$DATA_DIR"
+        initiate_postgresql
+        set_users_and_grant
 
-    echo "🛑 Shutting down temporary instance..."
-    pg_ctl stop -D "$DATA_DIR"
-    wait "$pid"
+        echo "🛑 Shutting down temporary instance..."
+        pg_ctl stop -D "$DATA_DIR"
+        wait "$pid"
 
+        set_memory
+        set_hba
+        touch "$DATA_DIR/DKA_POSTGRESQL_INIT"
+    fi
+else
+    echo "🚀 Existing Data Detected. Updating configuration..."
     set_memory
     set_hba
-    touch "$DATA_DIR/DKA_POSTGRESQL_INIT"
-else
-    set_memory
 fi
 
 echo "🚀 Running Final Postgres Engine..."
 pg_ctl start -D "$DATA_DIR" -l "$DATA_DIR/main_server.log"
 checkPostgreSQLIsRunning
+
+check_and_create_replication_user
 
 # Graceful Shutdown Handler
 shutdown_handler() {
