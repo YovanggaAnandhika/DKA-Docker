@@ -35,16 +35,18 @@ get_container_runtime() {
 export_cron_file() {
   echo "Exporting cron files..."
 
+  # Bersihkan crontab root agar tidak duplikat saat restart
+  > /etc/crontabs/root
+
   if [ "$ENABLED_CRON" = "true" ]; then
     for file in /usr/cron.d/*; do
       [ -f "$file" ] || continue
-      cron_name=$(basename "$file")
-      echo "${CRON_PRIODIC} root /bin/sh $file" > "/etc/cron.d/$cron_name"
+      echo "${CRON_PRIODIC} /bin/sh $file" >> /etc/crontabs/root
     done
   fi
 
   if [ "$MAINTENANCE_ENABLE" = "true" ]; then
-    echo "${MAINTENANCE_CRON} root /usr/local/bin/maintenance >> $MAINTENANCE_LOG 2>&1" > "/etc/cron.d/maintenance"
+    echo "${MAINTENANCE_CRON} /usr/local/bin/maintenance >> $MAINTENANCE_LOG 2>&1" >> /etc/crontabs/root
   fi
 }
 
