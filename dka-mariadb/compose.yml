@@ -1,57 +1,73 @@
-name: dka-database
+name: dka-database-mariadb-galera
 
 services:
-  mariadb:
+
+  mariadb-node1:
     image: yovanggaanandhika/mariadb:latest
-    container_name: dka-database-mariadb
-    hostname: dka-database-mariadb
+    container_name: dka-mariadb-node1
+    hostname: dka-mariadb-node1
     restart: always
     environment:
       DKA_ROOT_PASSWORD: Cyberhack2010
-      DKA_DB_NAME: dka
-      DKA_DB_USERNAME: dka
+      DKA_DB_NAME: test
+      DKA_DB_USERNAME: test
       DKA_DB_PASSWORD: Cyberhack2010
-      DKA_CRON_ENABLE: true
-      DKA_CRON_PRIODIC: "0 3 * * *"
-      # S3 / Wasabi upload configuration
-      DKA_S3_UPLOAD_ENABLE: true
-      DKA_S3_BUCKET: my-wasabi-bucket
-      DKA_S3_PATH: backups/mariadb
-      DKA_S3_ENDPOINT: https://s3.ap-southeast-1.wasabisys.com
-      DKA_S3_REGION: ap-southeast-1
-      AWS_ACCESS_KEY_ID: your_access_key
-      AWS_SECRET_ACCESS_KEY: your_secret_key
-      # Auto maintenance
-      DKA_MAINTENANCE_ENABLE: true
-      DKA_MAINTENANCE_CRON: "0 4 * * *"
-      DKA_MAINTENANCE_LOG: /var/log/mysql/maintenance.log
+      
+      # Galera Settings
+      DKA_REPLICATION_MODE: galera
+      DKA_GALERA_BOOTSTRAP: true
+      DKA_GALERA_CLUSTER_NAME: dka_mariadb_cluster
+      DKA_GALERA_CLUSTER_ADDRESS: gcomm://dka-mariadb-node1,dka-mariadb-node2
+      
+      DKA_CRON_ENABLE: false
+      DKA_MAINTENANCE_ENABLE: false
     ports:
       - target: 3306
         published: 3306
         protocol: tcp
         host_ip: 0.0.0.0
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1.0'
-        reservations:
-          memory: 500M
-          cpus: '0.8'
     volumes:
       - type: volume
-        source: data
+        source: data-node1
         target: /var/lib/mysql
+    networks:
+      - default
+
+  mariadb-node2:
+    image: yovanggaanandhika/mariadb:latest
+    container_name: dka-mariadb-node2
+    hostname: dka-mariadb-node2
+    restart: always
+    environment:
+      DKA_ROOT_PASSWORD: Cyberhack2010
+      DKA_DB_NAME: test
+      DKA_DB_USERNAME: test
+      DKA_DB_PASSWORD: Cyberhack2010
+      
+      # Galera Settings
+      DKA_REPLICATION_MODE: galera
+      DKA_GALERA_BOOTSTRAP: false
+      DKA_GALERA_CLUSTER_NAME: dka_mariadb_cluster
+      DKA_GALERA_CLUSTER_ADDRESS: gcomm://dka-mariadb-node1,dka-mariadb-node2
+      
+      DKA_CRON_ENABLE: false
+      DKA_MAINTENANCE_ENABLE: false
+    ports:
+      - target: 3306
+        published: 3307
+        protocol: tcp
+        host_ip: 0.0.0.0
+    volumes:
       - type: volume
-        source: backup
-        target: /backup
+        source: data-node2
+        target: /var/lib/mysql
     networks:
       - default
 
 volumes:
-  data:
+  data-node1:
     driver: local
-  backup:
+  data-node2:
     driver: local
 
 networks:

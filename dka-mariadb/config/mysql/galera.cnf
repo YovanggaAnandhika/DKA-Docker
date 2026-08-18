@@ -1,0 +1,13 @@
+[galera]
+wsrep_on=ON
+wsrep_provider=/usr/lib/galera/libgalera_smm.so
+wsrep_cluster_name="{{DKA_GALERA_CLUSTER_NAME}}"
+wsrep_cluster_address="{{DKA_GALERA_CLUSTER_ADDRESS}}"
+wsrep_node_name="{{HOSTNAME}}"
+wsrep_sst_method=rsync
+
+# Pengaturan dasar wajib untuk Galera
+binlog_format=ROW
+default_storage_engine=InnoDB
+innodb_autoinc_lock_mode=2
+bind-address=0.0.0.0

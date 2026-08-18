@@ -4,7 +4,8 @@ FROM alpine:3.21.0
 LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
 # Run update & Install Mariadb
 RUN apk update && apk add --no-cache cgroup-tools tzdata htop nano dcron logrotate bash rsync ifupdown-ng \
-    mariadb mariadb-client mariadb-server-utils bc py3-pip py3-setuptools py3-wheel && \
+    mariadb mariadb-client mariadb-server-utils bc py3-pip py3-setuptools py3-wheel socat && \
+    apk add --no-cache galera --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community/ && \
     pip install --no-cache-dir --break-system-packages awscli && \
     rm -rf /var/cache/apk/*
 # Set the timezone (e.g., Asia/Makassar)
@@ -12,6 +13,7 @@ ENV TZ=Asia/Makassar
 # Copy Mariadb configuration file
 COPY config/mysql/my.cnf /etc/my.cnf
 COPY config/mysql/init.cnf /etc/init.cnf
+COPY config/mysql/galera.cnf /etc/my.cnf.d/galera.cnf.template
 # Copy existing log rotate config
 COPY config/logrotate.d /etc/logrotate.d/
 # Add Log System

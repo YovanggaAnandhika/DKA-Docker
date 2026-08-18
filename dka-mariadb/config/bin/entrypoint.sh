@@ -12,6 +12,12 @@ DB_NAME=${DKA_DB_NAME:-test}
 DB_USERNAME=${DKA_DB_USERNAME:-test}
 DB_PASSWORD=${DKA_DB_PASSWORD:-test}
 
+# Galera Replication Env
+DKA_REPLICATION_MODE=${DKA_REPLICATION_MODE:-none}
+DKA_GALERA_BOOTSTRAP=${DKA_GALERA_BOOTSTRAP:-false}
+DKA_GALERA_CLUSTER_NAME=${DKA_GALERA_CLUSTER_NAME:-dka_cluster}
+DKA_GALERA_CLUSTER_ADDRESS=${DKA_GALERA_CLUSTER_ADDRESS:-gcomm://}
+
 # Maintenance Env
 MAINTENANCE_ENABLE=${DKA_MAINTENANCE_ENABLE:-false}
 MAINTENANCE_CRON=${DKA_MAINTENANCE_CRON:-0 4 * * *}
@@ -65,6 +71,19 @@ set_memory() {
   sed -i "s|{{INNODB_BUFFER_POOL_SIZE}}|$MEMORY_MAX_MB|g" /etc/init.cnf
   sed -i "s|{{QUERY_CACHE_SIZE}}|$QUERY_CACHE_SIZE|g" /etc/init.cnf
   sed -i "s|{{TMP_TABLE_SIZE}}|$TMP_TABLE_SIZE|g" /etc/init.cnf
+}
+
+set_galera() {
+  if [ "$DKA_REPLICATION_MODE" = "galera" ]; then
+    # Hanya tambahkan konfigurasi jika belum ada
+    if ! grep -q "\[galera\]" /etc/my.cnf; then
+        echo "🔄 Configuring Galera Cluster..."
+        cat /etc/my.cnf.d/galera.cnf.template >> /etc/my.cnf
+        sed -i "s|{{DKA_GALERA_CLUSTER_NAME}}|$DKA_GALERA_CLUSTER_NAME|g" /etc/my.cnf
+        sed -i "s|{{DKA_GALERA_CLUSTER_ADDRESS}}|$DKA_GALERA_CLUSTER_ADDRESS|g" /etc/my.cnf
+        sed -i "s|{{HOSTNAME}}|$HOSTNAME|g" /etc/my.cnf
+    fi
+  fi
 }
 
 checkMariaDBIsRunning(){
@@ -186,9 +205,17 @@ echo "🟢 Running Logrotate..."
 logrotate -f /etc/logrotate.conf >/dev/null 2>&1;
 echo "🟢 Running Scheduler Cron..."
 crond &
-# Memulai server MariaDB secara normal
-echo "🚀 Running MariaDB Server Active..."
-mariadbd --defaults-file="${DEFAULT_CONFIG_PATH}" &
+
+set_galera
+
+# Memulai server MariaDB secara normal atau bootstrap
+if [ "$DKA_REPLICATION_MODE" = "galera" ] && [ "$DKA_GALERA_BOOTSTRAP" = "true" ]; then
+  echo "🚀 Running MariaDB Server Active (Galera Bootstrap)..."
+  mariadbd --defaults-file="${DEFAULT_CONFIG_PATH}" --wsrep-new-cluster &
+else
+  echo "🚀 Running MariaDB Server Active..."
+  mariadbd --defaults-file="${DEFAULT_CONFIG_PATH}" &
+fi
 MARIADB_PID=$!
 
 checkMariaDBIsRunning
