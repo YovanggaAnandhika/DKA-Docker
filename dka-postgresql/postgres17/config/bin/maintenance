@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# --- Load environment variables if available ---
+[ -f /etc/dka_env ] && . /etc/dka_env
+
 # PostgreSQL maintenance helper
 # Supports VACUUM/ANALYZE and optional REINDEX per database.
 
@@ -25,11 +28,13 @@ fi
 
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting maintenance for database: $DB_NAME"
 
+# --- 1. Proses VACUUM (Mengosongkan ruang kosong di tabel) ---
 if [ "$ENABLE_VACUUM" = "true" ]; then
-  echo "Running VACUUM (ANALYZE) on $DB_NAME"
+  echo "Running VACUUM (ANALYZE) on $DB_NAME..."
   psql -U "$ROOT_USERNAME" -d "$DB_NAME" -c "VACUUM (VERBOSE, ANALYZE);"
 fi
 
+# --- 2. Proses REINDEX (Membangun ulang index agar query cepat) ---
 if [ "$ENABLE_REINDEX" = "true" ]; then
   echo "Checking whether REINDEX is needed (mode=$REINDEX_MODE)..."
   do_reindex=false
@@ -37,8 +42,11 @@ if [ "$ENABLE_REINDEX" = "true" ]; then
   if [ "$REINDEX_MODE" = "always" ]; then
     do_reindex=true
   else
+    # Mencari tabel yang memiliki index tetapi banyak melakukan penulisan/modifikasi (dead tuples tinggi)
     dead_tables=$(psql -U "$ROOT_USERNAME" -d "$DB_NAME" -X -A -t -c "SELECT count(*) FROM pg_stat_user_tables WHERE n_dead_tup > GREATEST($REINDEX_MIN_DEAD_TUPLES, n_live_tup * $REINDEX_DEAD_RATIO_THRESHOLD);")
-    index_candidates=$(psql -U "$ROOT_USERNAME" -d "$DB_NAME" -X -A -t -c "SELECT count(*) FROM pg_stat_user_indexes ui JOIN pg_class ic ON ic.oid = ui.indexrelid WHERE ui.idx_scan < $REINDEX_INDEX_SCAN_THRESHOLD AND pg_relation_size(ic.oid) > $REINDEX_INDEX_SIZE_THRESHOLD;")
+    
+    # Mencari indeks yang aktif (sering digunakan) dan berukuran besar (karena indeks besar rentan terhadap bloat)
+    index_candidates=$(psql -U "$ROOT_USERNAME" -d "$DB_NAME" -X -A -t -c "SELECT count(*) FROM pg_stat_user_indexes ui JOIN pg_class ic ON ic.oid = ui.indexrelid WHERE ui.idx_scan > $REINDEX_INDEX_SCAN_THRESHOLD AND pg_relation_size(ic.oid) > $REINDEX_INDEX_SIZE_THRESHOLD;")
 
     if [ "${dead_tables:-0}" -gt 0 ] || [ "${index_candidates:-0}" -gt 0 ]; then
       do_reindex=true
@@ -49,13 +57,15 @@ if [ "$ENABLE_REINDEX" = "true" ]; then
   fi
 
   if [ "$do_reindex" = "true" ]; then
-    echo "Running REINDEX DATABASE $DB_NAME"
-    psql -U "$ROOT_USERNAME" -d "$DB_NAME" -c "REINDEX DATABASE \"$DB_NAME\";"
+    # Menggunakan REINDEX CONCURRENTLY (jika PostgreSQL >= 12) agar tidak mengunci tabel saat proses berjalan di production
+    echo "Running REINDEX DATABASE CONCURRENTLY $DB_NAME"
+    psql -U "$ROOT_USERNAME" -d "$DB_NAME" -c "REINDEX DATABASE CONCURRENTLY \"$DB_NAME\";"
   else
     echo "Skipping REINDEX for $DB_NAME."
   fi
 fi
 
+# --- 3. Proses ANALYZE (Pembaruan statistik optimizer query) ---
 if [ "$ENABLE_ANALYZE" = "true" ] && [ "$ENABLE_VACUUM" != "true" ]; then
   echo "Running ANALYZE on $DB_NAME"
   psql -U "$ROOT_USERNAME" -d "$DB_NAME" -c "ANALYZE;"

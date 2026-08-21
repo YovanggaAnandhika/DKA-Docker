@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# --- Load environment variables for cron ---
+[ -f /etc/dka_env ] && . /etc/dka_env
+
 # --- 1. Konfigurasi ---
 DB_HOST=${DKA_DB_HOST:-localhost}
 ROOT_USERNAME=${DKA_ROOT_USERNAME:-postgres}
@@ -7,80 +10,195 @@ ROOT_PASSWORD=${DKA_ROOT_PASSWORD:-postgres}
 
 # Target DB yang akan di-backup
 DB_NAME=${DKA_DB_NAME:-test}
-# User pemilik DB (untuk referensi jika diperlukan)
 DB_USER=${DKA_DB_USERNAME:-test}
 
 BACKUP_DIR="/backup"
 DATE=$(date +%d-%m-%Y_%H-%M-%S)
-BACKUP_FILE="$BACKUP_DIR/${DB_NAME}_$DATE.sql.gz"
 
-# Optional S3/Wasabi upload settings
+# S3/Wasabi upload settings
 DKA_S3_UPLOAD_ENABLE=${DKA_S3_UPLOAD_ENABLE:-false}
 DKA_S3_BUCKET=${DKA_S3_BUCKET:-}
 DKA_S3_PATH=${DKA_S3_PATH:-/}
 DKA_S3_ENDPOINT=${DKA_S3_ENDPOINT:-https://s3.ap-southeast-1.wasabisys.com}
 DKA_S3_REGION=${DKA_S3_REGION:-ap-southeast-1}
 
-# Pastikan direktori backup ada
-mkdir -p "$BACKUP_DIR"
+# Telegram settings
+DKA_TELEGRAM_ENABLE=${DKA_TELEGRAM_ENABLE:-false}
+DKA_TELEGRAM_BOT_TOKEN=${DKA_TELEGRAM_BOT_TOKEN:-}
+DKA_TELEGRAM_CHAT_ID=${DKA_TELEGRAM_CHAT_ID:-}
 
-# Ekspor password untuk sesi ini saja
+# Backup control settings
+DKA_BACKUP_FULL_ENABLE=${DKA_BACKUP_FULL_ENABLE:-true}
+DKA_BACKUP_PARTIAL_ENABLE=${DKA_BACKUP_PARTIAL_ENABLE:-false}
+DKA_BACKUP_PARTIAL_DATE_COLUMNS=${DKA_BACKUP_PARTIAL_DATE_COLUMNS:-created_at,updated_at,created,updated,tgl,timestamp,date}
+DKA_BACKUP_PARTIAL_FALLBACK_FULL=${DKA_BACKUP_PARTIAL_FALLBACK_FULL:-true}
+
+# Pastikan direktori backup ada
+mkdir -p "$BACKUP_DIR/full" "$BACKUP_DIR/partial"
+
+# Ekspor password untuk sesi ini
 export PGPASSWORD=$ROOT_PASSWORD
 
 echo "----------------------------------------------------------"
-echo "🚀 Memulai Backup Database: $DB_NAME"
+echo "🚀 POSTGRESQL BACKUP MANAGER"
 echo "📅 Tanggal: $DATE"
 echo "----------------------------------------------------------"
 
-# --- 2. Proses Dump ---
-# Menggunakan root agar bisa membaca semua skema tanpa hambatan privilege
-# --no-owner & --no-privileges agar dump bersih (bisa di-restore ke user mana saja)
-pg_dump -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" \
-    --no-owner \
-    --no-privileges \
-    --clean \
-    --if-exists \
-    --format=p \
-    | gzip -9 > "$BACKUP_FILE"
+# --- Fungsi Upload ke S3/Wasabi ---
+upload_to_s3() {
+    local file_path=$1
+    local sub_dir=$2
 
-# --- 3. Verifikasi ---
-if [ ${PIPESTATUS[0]} -eq 0 ]; then
-    FILE_SIZE=$(du -h "$BACKUP_FILE" | awk '{print $1}')
-    echo "✅ Backup BERHASIL disimpan di: $BACKUP_FILE"
-    echo "📊 Ukuran File: $FILE_SIZE"
-else
-    echo "❌ ERROR: Backup GAGAL!"
-    # Hapus file jika korup (0 byte)
-    rm -f "$BACKUP_FILE"
-    exit 1
-fi
-
-# --- 4. Housekeeping (Opsional) ---
-# Menghapus backup yang lebih lama dari 30 hari
-find "$BACKUP_DIR" -name "*.sql.gz" -type f -mtime +30 -delete
-echo "🧹 Housekeeping selesai (backup >30 hari dihapus)."
-echo "----------------------------------------------------------"
-
-# Jika upload diaktifkan, kirim file ke S3/Wasabi menggunakan aws CLI
-if [ "$DKA_S3_UPLOAD_ENABLE" = "true" ]; then
-    if [ -z "$DKA_S3_BUCKET" ]; then
-        echo "S3 upload enabled but DKA_S3_BUCKET is not set. Skipping upload."
-    else
-        UPLOAD_TARGET="s3://$DKA_S3_BUCKET"
-        if [ -n "$DKA_S3_PATH" ]; then
-            UPLOAD_TARGET="$UPLOAD_TARGET/${DKA_S3_PATH#/}"
-        fi
-
-        if command -v aws >/dev/null 2>&1; then
-            echo "Uploading $BACKUP_FILE -> $UPLOAD_TARGET (endpoint=$DKA_S3_ENDPOINT)"
-            aws s3 cp "$BACKUP_FILE" "$UPLOAD_TARGET/" --endpoint-url "$DKA_S3_ENDPOINT" --region "$DKA_S3_REGION"
-            if [ $? -eq 0 ]; then
-                echo "Upload successful."
-            else
-                echo "Upload failed."
-            fi
+    if [ "$DKA_S3_UPLOAD_ENABLE" = "true" ]; then
+        if [ -z "$DKA_S3_BUCKET" ]; then
+            echo "⚠️ S3 upload enabled but DKA_S3_BUCKET is not set. Skipping upload."
         else
-            echo "aws CLI not found in container. Install AWS CLI to enable S3/Wasabi uploads."
+            UPLOAD_TARGET="s3://$DKA_S3_BUCKET"
+            if [ -n "$DKA_S3_PATH" ] && [ "$DKA_S3_PATH" != "/" ]; then
+                UPLOAD_TARGET="$UPLOAD_TARGET/${DKA_S3_PATH#/}"
+            fi
+            UPLOAD_TARGET="$UPLOAD_TARGET/$sub_dir"
+
+            if command -v aws >/dev/null 2>&1; then
+                echo "⏳ Uploading $file_path -> $UPLOAD_TARGET (endpoint=$DKA_S3_ENDPOINT)..."
+                aws s3 cp "$file_path" "$UPLOAD_TARGET/" --endpoint-url "$DKA_S3_ENDPOINT" --region "$DKA_S3_REGION"
+                if [ $? -eq 0 ]; then
+                    echo "✅ Upload $sub_dir backup successful."
+                else
+                    echo "❌ Upload $sub_dir backup failed."
+                fi
+            else
+                echo "❌ aws CLI not found in container. Skipping S3 upload."
+            fi
         fi
     fi
+}
+
+# --- Fungsi Kirim Telegram ---
+send_to_telegram() {
+    local file_path=$1
+    local type_name=$2
+
+    if [ "$DKA_TELEGRAM_ENABLE" = "true" ] && [ -n "$DKA_TELEGRAM_BOT_TOKEN" ] && [ -n "$DKA_TELEGRAM_CHAT_ID" ]; then
+        echo "📤 Sending $type_name backup to Telegram..."
+        if command -v curl >/dev/null 2>&1; then
+            FILE_SIZE_BYTES=$(stat -c%s "$file_path" 2>/dev/null || stat -f%z "$file_path" 2>/dev/null)
+            if [ "$FILE_SIZE_BYTES" -le 52428800 ]; then
+                curl -s -F chat_id="$DKA_TELEGRAM_CHAT_ID" \
+                     -F document=@"$file_path" \
+                     -F caption="✅ DKA PostgreSQL *$type_name* Backup untuk database *$DB_NAME* pada $DATE" \
+                     -F parse_mode="Markdown" \
+                     "https://api.telegram.org/bot$DKA_TELEGRAM_BOT_TOKEN/sendDocument" >/dev/null
+            else
+                FILE_SIZE_HUMAN=$(du -h "$file_path" | awk '{print $1}')
+                curl -s -X POST "https://api.telegram.org/bot$DKA_TELEGRAM_BOT_TOKEN/sendMessage" \
+                     -d chat_id="$DKA_TELEGRAM_CHAT_ID" \
+                     -d text="⚠️ Backup *$type_name* database *$DB_NAME* terlalu besar ($FILE_SIZE_HUMAN) untuk dikirim langsung via Telegram (> 50MB). File disimpan di server/Wasabi." \
+                     -d parse_mode="Markdown" >/dev/null
+            fi
+        else
+            echo "❌ curl tidak ditemukan di container. Gagal mengirim ke Telegram."
+        fi
+    fi
+}
+
+# --- 2. Eksekusi Backup Full ---
+if [ "$DKA_BACKUP_FULL_ENABLE" = "true" ]; then
+    BACKUP_FILE_FULL="$BACKUP_DIR/full/${DB_NAME}_full_$DATE.sql.gz"
+    echo "📦 Membuat FULL Backup..."
+    pg_dump -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" \
+        --no-owner \
+        --no-privileges \
+        --clean \
+        --if-exists \
+        --format=p \
+        | gzip -9 > "$BACKUP_FILE_FULL"
+
+    if [ ${PIPESTATUS[0]} -eq 0 ]; then
+        FILE_SIZE=$(du -h "$BACKUP_FILE_FULL" | awk '{print $1}')
+        echo "✅ FULL Backup BERHASIL: $BACKUP_FILE_FULL ($FILE_SIZE)"
+        upload_to_s3 "$BACKUP_FILE_FULL" "full"
+        send_to_telegram "$BACKUP_FILE_FULL" "Full"
+    else
+        echo "❌ ERROR: FULL Backup GAGAL!"
+        rm -f "$BACKUP_FILE_FULL"
+    fi
 fi
+
+# --- 3. Eksekusi Backup Parsial (Hari Ini Saja) ---
+if [ "$DKA_BACKUP_PARTIAL_ENABLE" = "true" ]; then
+    BACKUP_FILE_PARTIAL="$BACKUP_DIR/partial/${DB_NAME}_partial_$DATE.sql.gz"
+    TEMP_SQL="/tmp/${DB_NAME}_partial_$DATE.sql"
+    echo "📦 Membuat PARTIAL Backup (Data Hari Ini)..."
+
+    # 3.1. Ekspor seluruh skema struktur tanpa data
+    echo "-- DKA PostgreSQL Schema Dump" > "$TEMP_SQL"
+    pg_dump -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" \
+        --schema-only \
+        --no-owner \
+        --no-privileges \
+        --format=p >> "$TEMP_SQL" 2>/dev/null
+
+    if [ $? -eq 0 ]; then
+        # Buat list kolom filter bertipe string IN SQL
+        IFS=',' read -ra ADDR <<< "$DKA_BACKUP_PARTIAL_DATE_COLUMNS"
+        COL_LIST=""
+        for col in "${ADDR[@]}"; do
+            COL_LIST="$COL_LIST'$col',"
+        done
+        COL_LIST="${COL_LIST%,}"
+
+        # 3.2. Ambil daftar tabel di semua skema (selain sistem pg_catalog, information_schema, & tabel milik extension)
+        TABLES_QUERY="SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace LEFT JOIN pg_depend d ON d.objid = c.oid AND d.deptype = 'e' WHERE c.relkind = 'r' AND n.nspname NOT IN ('pg_catalog', 'information_schema') AND d.refobjid IS NULL;"
+        TABLES_LIST=$(psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" -t -A -F ',' -c "$TABLES_QUERY" 2>/dev/null)
+
+        if [ -n "$TABLES_LIST" ]; then
+            echo "" >> "$TEMP_SQL"
+            echo "-- --- DATA PARTIAL EXPORT ---" >> "$TEMP_SQL"
+            echo "SET session_replication_role = 'replica';" >> "$TEMP_SQL" # bypass foreign keys check saat restore
+
+            while IFS=',' read -r t_schema t_name; do
+                [ -z "$t_schema" ] && [ -z "$t_name" ] && continue
+
+                # Cek apakah tabel memiliki kolom tanggal yang sesuai filter
+                DATE_COL=$(psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" -t -A -c "
+                  SELECT column_name FROM information_schema.columns 
+                  WHERE table_schema='$t_schema' AND table_name='$t_name' AND column_name IN ($COL_LIST) 
+                  LIMIT 1;
+                " 2>/dev/null)
+
+                if [ -n "$DATE_COL" ]; then
+                    echo "➡️ Menyarankan tabel \"$t_schema\".\"$t_name\" dengan filter $DATE_COL >= hari ini"
+                    echo "COPY \"$t_schema\".\"$t_name\" FROM stdin;" >> "$TEMP_SQL"
+                    psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" -c "COPY (SELECT * FROM \"$t_schema\".\"$t_name\" WHERE \"$DATE_COL\" >= CURRENT_DATE) TO STDOUT;" >> "$TEMP_SQL" 2>/dev/null
+                    echo "\." >> "$TEMP_SQL"
+                elif [ "$DKA_BACKUP_PARTIAL_FALLBACK_FULL" = "true" ]; then
+                    echo "➡️ Backup penuh tabel master: \"$t_schema\".\"$t_name\" (tidak ada kolom tanggal)"
+                    echo "COPY \"$t_schema\".\"$t_name\" FROM stdin;" >> "$TEMP_SQL"
+                    psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" -c "COPY \"$t_schema\".\"$t_name\" TO STDOUT;" >> "$TEMP_SQL" 2>/dev/null
+                    echo "\." >> "$TEMP_SQL"
+                fi
+            done <<< "$TABLES_LIST"
+
+            echo "SET session_replication_role = 'origin';" >> "$TEMP_SQL"
+        fi
+
+        # Kompresi file SQL hasil gabungan
+        gzip -9 < "$TEMP_SQL" > "$BACKUP_FILE_PARTIAL"
+        rm -f "$TEMP_SQL"
+
+        FILE_SIZE=$(du -h "$BACKUP_FILE_PARTIAL" | awk '{print $1}')
+        echo "✅ PARTIAL Backup BERHASIL: $BACKUP_FILE_PARTIAL ($FILE_SIZE)"
+        upload_to_s3 "$BACKUP_FILE_PARTIAL" "partial"
+        send_to_telegram "$BACKUP_FILE_PARTIAL" "Partial"
+    else
+        echo "❌ ERROR: PARTIAL Backup GAGAL (Gagal mem-backup skema)."
+        rm -f "$TEMP_SQL" "$BACKUP_FILE_PARTIAL"
+    fi
+fi
+
+# --- 4. Housekeeping ---
+find "$BACKUP_DIR" -name "*.sql.gz" -type f -mtime +30 -delete
+echo "----------------------------------------------------------"
+echo "🧹 Housekeeping selesai (backup >30 hari lokal dihapus)."
+echo "----------------------------------------------------------"
