@@ -3,7 +3,7 @@ name: dka-database-postgresql-ms
 services:
 
   postgresql-master:
-    image: yovanggaanandhika/postgresql:17.0
+    image: yovanggaanandhika/postgresql:17.1
     container_name: dka-postgresql-master
     hostname: dka-postgresql-master
     restart: always
@@ -13,22 +13,73 @@ services:
         protocol: tcp
         host_ip: 0.0.0.0
     environment:
+      # ============================================================
       # Replication Settings (Master)
+      # ============================================================
       DKA_REPLICATION_MODE: master
       DKA_REPLICATION_USER: replicator
       DKA_REPLICATION_PASSWORD: replicator_pass
-      
-      # PostgreSQL default account configuration
+
+      # ============================================================
+      # PostgreSQL Account Configuration
+      # ============================================================
       DKA_ROOT_USERNAME: postgres
       DKA_ROOT_PASSWORD: postgres
       DKA_DB_NAME: test
       DKA_DB_USERNAME: test
       DKA_DB_PASSWORD: test
       DKA_DB_MAX_CONNECTION: 200
-      
-      # Cron & Maintenance
+
+      # ============================================================
+      # Cron & Backup Settings
+      # ============================================================
       DKA_CRON_ENABLE: true
+      DKA_CRON_PRIODIC: "0 3 * * *"       # Jadwal cron backup (default: 03:00 setiap hari)
+
+      # Full Backup (seluruh database)
+      DKA_BACKUP_FULL_ENABLE: true
+
+      # Partial Backup (data hari ini saja, berdasarkan kolom tanggal)
+      DKA_BACKUP_PARTIAL_ENABLE: false
+      # Jika tabel tidak memiliki kolom tanggal, backup penuh tabel tersebut (true) atau skip (false)
+      DKA_BACKUP_PARTIAL_FALLBACK_FULL: "true"
+      # (Opsional) Override kolom tanggal yang dideteksi. Jika tidak diisi, otomatis mendeteksi kolom:
+      # created_at, updated_at, created, updated, tgl, timestamp, date
+      # DKA_BACKUP_PARTIAL_DATE_COLUMNS: "created_at,updated_at"
+
+      # ============================================================
+      # S3 / Wasabi Upload Settings
+      # ============================================================
+      DKA_S3_UPLOAD_ENABLE: false
+      DKA_S3_BUCKET: my-wasabi-bucket
+      DKA_S3_PATH: backups/postgresql       # File full -> /full/, parsial -> /partial/
+      DKA_S3_ENDPOINT: https://s3.ap-southeast-1.wasabisys.com
+      DKA_S3_REGION: ap-southeast-1
+      AWS_ACCESS_KEY_ID: your_access_key
+      AWS_SECRET_ACCESS_KEY: your_secret_key
+
+      # ============================================================
+      # Telegram Notification Settings
+      # ============================================================
+      DKA_TELEGRAM_ENABLE: false
+      DKA_TELEGRAM_BOT_TOKEN: "your_bot_token"
+      DKA_TELEGRAM_CHAT_ID: "your_chat_id"
+
+      # ============================================================
+      # Auto Maintenance / Optimizer
+      # ============================================================
       DKA_MAINTENANCE_ENABLE: true
+      DKA_MAINTENANCE_CRON: "0 4 * * *"    # Jadwal maintenance (default: 04:00 setiap hari)
+      DKA_MAINTENANCE_VACUUM_ENABLE: "true"
+      DKA_MAINTENANCE_ANALYZE_ENABLE: "true"
+      DKA_MAINTENANCE_REINDEX_ENABLE: "false"
+      DKA_MAINTENANCE_REINDEX_MODE: smart   # smart | always
+      DKA_MAINTENANCE_REINDEX_DEAD_RATIO_THRESHOLD: "0.20"
+      DKA_MAINTENANCE_REINDEX_MIN_DEAD_TUPLES: "100000"
+      DKA_MAINTENANCE_REINDEX_INDEX_SCAN_THRESHOLD: "50"
+      DKA_MAINTENANCE_REINDEX_INDEX_SIZE_THRESHOLD: "104857600"
+      DKA_MAINTENANCE_LOG: /var/log/postgresql/maintenance.log
+
     volumes:
       - type: volume
         source: data-master
@@ -40,33 +91,57 @@ services:
       - default
 
   postgresql-slave:
-    image: yovanggaanandhika/postgresql:17.0
+    image: yovanggaanandhika/postgresql:17.1
     container_name: dka-postgresql-slave
     hostname: dka-postgresql-slave
     restart: always
     ports:
       - target: 5432
-        published: 5433  # Port 5433 untuk Slave
+        published: 5433                     # Port 5433 untuk Slave
         protocol: tcp
         host_ip: 0.0.0.0
     environment:
+      # ============================================================
       # Replication Settings (Slave)
+      # ============================================================
       DKA_REPLICATION_MODE: slave
-      DKA_PEER_HOST: postgresql-master
+      DKA_PEER_HOST: postgresql-master      # Nama service / hostname Master
       DKA_REPLICATION_USER: replicator
       DKA_REPLICATION_PASSWORD: replicator_pass
-      
-      # Konfigurasi disamakan persis dengan Master
+
+      # ============================================================
+      # PostgreSQL Account Configuration (harus sama dengan Master)
+      # ============================================================
       DKA_ROOT_USERNAME: postgres
       DKA_ROOT_PASSWORD: postgres
       DKA_DB_NAME: test
       DKA_DB_USERNAME: test
       DKA_DB_PASSWORD: test
       DKA_DB_MAX_CONNECTION: 200
-      
-      # Cron & Maintenance
+
+      # ============================================================
+      # Cron & Backup Settings (Slave biasanya backup terpisah)
+      # ============================================================
       DKA_CRON_ENABLE: true
-      DKA_MAINTENANCE_ENABLE: true
+      DKA_CRON_PRIODIC: "0 3 * * *"
+      DKA_BACKUP_FULL_ENABLE: true
+      DKA_BACKUP_PARTIAL_ENABLE: false
+      DKA_S3_UPLOAD_ENABLE: false
+      DKA_TELEGRAM_ENABLE: false
+
+      # ============================================================
+      # Restore Settings
+      # ============================================================
+      # Perilaku restore untuk Partial Backup:
+      #   false (default) = Merge mode, data disuntikkan tanpa drop database
+      #   true            = Overwrite mode, database di-drop lalu di-restore ulang
+      DKA_RESTORE_PARTIAL_OVERWRITE: "false"
+
+      # ============================================================
+      # Auto Maintenance
+      # ============================================================
+      DKA_MAINTENANCE_ENABLE: false         # Slave biasanya tidak perlu maintenance manual
+
     volumes:
       - type: volume
         source: data-slave

@@ -27,7 +27,8 @@ DKA_TELEGRAM_CHAT_ID=${DKA_TELEGRAM_CHAT_ID:-}
 # Backup control settings
 DKA_BACKUP_FULL_ENABLE=${DKA_BACKUP_FULL_ENABLE:-true}
 DKA_BACKUP_PARTIAL_ENABLE=${DKA_BACKUP_PARTIAL_ENABLE:-false}
-DKA_BACKUP_PARTIAL_DATE_COLUMNS=${DKA_BACKUP_PARTIAL_DATE_COLUMNS:-created_at,updated_at,created,updated,tgl,timestamp,date}
+# (Opsional) Override nama kolom tanggal secara manual. Jika kosong, deteksi otomatis berdasarkan tipe data timestamp/date
+DKA_BACKUP_PARTIAL_DATE_COLUMNS=${DKA_BACKUP_PARTIAL_DATE_COLUMNS:-}
 DKA_BACKUP_PARTIAL_FALLBACK_FULL=${DKA_BACKUP_PARTIAL_FALLBACK_FULL:-true}
 
 # Pastikan direktori backup ada
@@ -137,14 +138,6 @@ if [ "$DKA_BACKUP_PARTIAL_ENABLE" = "true" ]; then
         --format=p >> "$TEMP_SQL" 2>/dev/null
 
     if [ $? -eq 0 ]; then
-        # Buat list kolom filter bertipe string IN SQL
-        IFS=',' read -ra ADDR <<< "$DKA_BACKUP_PARTIAL_DATE_COLUMNS"
-        COL_LIST=""
-        for col in "${ADDR[@]}"; do
-            COL_LIST="$COL_LIST'$col',"
-        done
-        COL_LIST="${COL_LIST%,}"
-
         # 3.2. Ambil daftar tabel di semua skema (selain sistem pg_catalog, information_schema, & tabel milik extension)
         TABLES_QUERY="SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace LEFT JOIN pg_depend d ON d.objid = c.oid AND d.deptype = 'e' WHERE c.relkind = 'r' AND n.nspname NOT IN ('pg_catalog', 'information_schema') AND d.refobjid IS NULL;"
         TABLES_LIST=$(psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" -t -A -F ',' -c "$TABLES_QUERY" 2>/dev/null)
@@ -157,12 +150,30 @@ if [ "$DKA_BACKUP_PARTIAL_ENABLE" = "true" ]; then
             while IFS=',' read -r t_schema t_name; do
                 [ -z "$t_schema" ] && [ -z "$t_name" ] && continue
 
-                # Cek apakah tabel memiliki kolom tanggal yang sesuai filter
-                DATE_COL=$(psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" -t -A -c "
-                  SELECT column_name FROM information_schema.columns 
-                  WHERE table_schema='$t_schema' AND table_name='$t_name' AND column_name IN ($COL_LIST) 
-                  LIMIT 1;
-                " 2>/dev/null)
+                # Deteksi kolom tanggal: jika user override manual, pakai nama kolom; jika tidak, deteksi otomatis dari tipe data
+                if [ -n "$DKA_BACKUP_PARTIAL_DATE_COLUMNS" ]; then
+                    # Mode override: cari kolom berdasarkan nama yang diberikan user
+                    IFS=',' read -ra ADDR <<< "$DKA_BACKUP_PARTIAL_DATE_COLUMNS"
+                    COL_LIST=""
+                    for col in "${ADDR[@]}"; do
+                        COL_LIST="$COL_LIST'$col',"
+                    done
+                    COL_LIST="${COL_LIST%,}"
+                    DATE_COL=$(psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" -t -A -c "
+                      SELECT column_name FROM information_schema.columns
+                      WHERE table_schema='$t_schema' AND table_name='$t_name' AND column_name IN ($COL_LIST)
+                      LIMIT 1;
+                    " 2>/dev/null)
+                else
+                    # Mode otomatis: deteksi kolom berdasarkan tipe data timestamp / date
+                    DATE_COL=$(psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" -t -A -c "
+                      SELECT column_name FROM information_schema.columns
+                      WHERE table_schema='$t_schema' AND table_name='$t_name'
+                        AND data_type IN ('timestamp without time zone','timestamp with time zone','date','time without time zone','time with time zone')
+                      ORDER BY ordinal_position
+                      LIMIT 1;
+                    " 2>/dev/null)
+                fi
 
                 if [ -n "$DATE_COL" ]; then
                     echo "➡️ Menyarankan tabel \"$t_schema\".\"$t_name\" dengan filter $DATE_COL >= hari ini"
