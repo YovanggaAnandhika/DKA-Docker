@@ -273,6 +273,14 @@ if [ ! -f "$DATA_DIR/DKA_POSTGRESQL_INIT" ]; then
     fi
 else
     echo "🚀 Existing Data Detected. Updating configuration..."
+    if [ "$DKA_REPLICATION_MODE" = "slave" ]; then
+        if [ ! -f "$DATA_DIR/standby.signal" ]; then
+            echo "❌ ERROR: Existing standalone/master data detected, but container is configured in 'slave' mode."
+            echo "   Running standalone/master data as a slave is not supported and will break replication."
+            echo "   Please clear the data directory ($DATA_DIR) or backup your data and re-run to allow auto-cloning from Master."
+            exit 1
+        fi
+    fi
     set_memory
     set_hba
 fi
