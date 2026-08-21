@@ -151,6 +151,11 @@ echo "➡️ Memutus koneksi aktif ke database $DB_NAME..."
 psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d postgres -c \
 "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" >/dev/null 2>&1
 
+# --- 3.5. Mengosongkan Database ---
+echo "➡️ Mengosongkan database lama (menghapus semua skema & tabel)..."
+psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d postgres -c "DROP DATABASE IF EXISTS \"$DB_NAME\";" >/dev/null 2>&1
+psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d postgres -c "CREATE DATABASE \"$DB_NAME\";" >/dev/null 2>&1
+
 # --- 4. Persiapan Fondasi (PostGIS) ---
 echo "➡️ Menyiapkan ekstensi PostGIS..."
 psql -h "$DB_HOST" -U "$ROOT_USERNAME" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS postgis;" >/dev/null 2>&1
