@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# --- Load environment variables if available ---
-[ -f /etc/dka_env ] && . /etc/dka_env
-
 # PostgreSQL maintenance helper
 # Supports VACUUM/ANALYZE and optional REINDEX per database.
 

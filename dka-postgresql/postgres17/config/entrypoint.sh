@@ -41,10 +41,6 @@ get_container_runtime() {
 export_cron_file() {
   echo "Exporting cron files..."
 
-  # Simpan environment variables DKA_ dan AWS_ untuk digunakan cron
-  env | grep -E '^(DKA_|AWS_|PG)' > /etc/dka_env || true
-  chmod 644 /etc/dka_env || true
-
   # Bersihkan crontab root agar tidak duplikat saat restart
   > /etc/crontabs/root
 

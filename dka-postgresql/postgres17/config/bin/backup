@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# --- Load environment variables for cron ---
-[ -f /etc/dka_env ] && . /etc/dka_env
-
 # --- 1. Konfigurasi ---
 DB_HOST=${DKA_DB_HOST:-localhost}
 ROOT_USERNAME=${DKA_ROOT_USERNAME:-postgres}
