@@ -254,6 +254,7 @@ if [ ! -f "$DATA_DIR/DKA_POSTGRESQL_INIT" ]; then
         # Clean data dir and run basebackup
         rm -rf "$DATA_DIR"/*
         PGPASSWORD=$DKA_REPLICATION_PASSWORD pg_basebackup -h "$DKA_PEER_HOST" -D "$DATA_DIR" -U "$DKA_REPLICATION_USER" -Fp -Xs -P -R
+        chmod 700 "$DATA_DIR"
         
         set_memory
         touch "$DATA_DIR/DKA_POSTGRESQL_INIT"
