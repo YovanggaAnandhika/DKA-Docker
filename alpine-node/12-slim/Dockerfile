@@ -7,7 +7,7 @@ LABEL maintainer="Yovangga Anandhika <dka.tech.dev@gmail.com>"
 # Update Repo
 RUN apt update && apt install -y  --no-install-recommends bash nano iputils-ping tzdata curl procps cron logrotate \
     && curl -fsSL https://deb.nodesource.com/setup_current.x | bash - && apt-get install -y nodejs npm \
-    && apt-get install -y --no-install-recommends openssl iputils-ping certbot python3-certbot-dns-cloudflare \
+    && apt-get install -y --no-install-recommends openssl iputils-ping \
     && npm install -g yarn \
     && apt install -y --no-install-recommends libcairo2-dev libpoppler-qt5-dev \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
