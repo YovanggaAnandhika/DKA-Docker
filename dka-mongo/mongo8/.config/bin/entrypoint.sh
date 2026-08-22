@@ -28,7 +28,7 @@ export DKA_CRON_ENABLE=${DKA_CRON_ENABLE:-false}
 export DKA_CRON_PRIODIC=${DKA_CRON_PRIODIC:-0 3 * * *}
 export DKA_REPL_ENABLED=${DKA_REPL_ENABLED:-false}
 export DKA_REPL_NAME=${DKA_REPL_NAME:-rs0}
-export GLIBC_TUNABLES=glibc.pthread.rseq=0
+export GLIBC_TUNABLES=glibc.pthread.rseq=1
 
 log_info "Configuration Loaded:"
 log_info " -> Hostname: ${DKA_HOSTNAME}"

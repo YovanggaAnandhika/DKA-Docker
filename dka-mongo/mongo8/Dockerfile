@@ -33,6 +33,7 @@ RUN mkdir -p /data/db && chown mongodb:mongodb -R /data/db  \
     && mkdir -p /entrypoint.d /docker-entrypoint-initdb.d
 # Setting env
 ENV TZ=Asia/Makassar
+ENV GLIBC_TUNABLES=glibc.pthread.rseq=1
 # --- Copy Configurations ---
 COPY .config/etc/* /etc/
 COPY .config/logrotate.d /etc/logrotate.d/
