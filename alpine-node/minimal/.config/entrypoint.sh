@@ -20,7 +20,7 @@ createConfig() {
   echo "🛠️ Make config.yml in $CONFIG_PATH"
   cat <<-EOF > "$CONFIG_PATH"
   tunnel: $TUNNEL_ID
-  credentials-file: $TUNNEL_JSON
+  credentials-file: $TUNNEL_JS  ON
 
   ingress:
     - hostname: ${TUNNEL_NAME:-example.com}
