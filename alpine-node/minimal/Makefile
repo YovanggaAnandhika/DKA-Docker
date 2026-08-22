@@ -1,5 +1,5 @@
 REPOSITORY_NAME=yovanggaanandhika/node
-TAG_NAME=0.0.1
+TAG_NAME=latest
 
 default:
 	docker buildx build \
