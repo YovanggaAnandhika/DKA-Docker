@@ -280,8 +280,11 @@ EOF
 clear_postmaster_pid() {
   echo "🧹 Cleaning stale files..."
   rm -f "$DATA_DIR/postmaster.pid"
+  rm -f /var/run/pgbouncer/pgbouncer.pid
   rm -rf /run/postgresql/* 2>/dev/null || true
+  rm -rf /var/run/pgbouncer/* 2>/dev/null || true
   mkdir -p /run/postgresql && chown postgres:postgres /run/postgresql
+  mkdir -p /var/run/pgbouncer && chown postgres:postgres /var/run/pgbouncer
 }
 
 # --- MAIN FLOW ---
