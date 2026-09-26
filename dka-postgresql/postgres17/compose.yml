@@ -32,7 +32,11 @@ services:
       DKA_DB_NAME: test
       DKA_DB_USERNAME: test
       DKA_DB_PASSWORD: test
-      DKA_DB_MAX_CONNECTION: 200
+      # DKA_DB_MAX_CONNECTION: 200
+      # DKA_DB_JIT: "off"
+      # DKA_DB_MAX_PARALLEL_WORKERS_PER_GATHER: "2"
+      # DKA_DB_MAX_PARALLEL_WORKERS: "4"
+      # DKA_DB_SYNCHRONOUS_COMMIT: "off"
 
       # ============================================================
       # PgBouncer Settings (Optional - Connection Pooler)
@@ -130,7 +134,11 @@ services:
       DKA_DB_NAME: test
       DKA_DB_USERNAME: test
       DKA_DB_PASSWORD: test
-      DKA_DB_MAX_CONNECTION: 200
+      # DKA_DB_MAX_CONNECTION: 200
+      # DKA_DB_JIT: "off"
+      # DKA_DB_MAX_PARALLEL_WORKERS_PER_GATHER: "2"
+      # DKA_DB_MAX_PARALLEL_WORKERS: "4"
+      # DKA_DB_SYNCHRONOUS_COMMIT: "off"
 
       # ============================================================
       # Cron & Backup Settings (Slave biasanya backup terpisah)
