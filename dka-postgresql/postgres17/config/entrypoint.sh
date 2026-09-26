@@ -5,6 +5,10 @@
 # ==============================================================================
 
 # --- 1. Konfigurasi Variabel & Jalur ---
+dka_log() {
+  printf "\033[1;35m[⚙️ DKA System]\033[0m %s\n" "$1"
+}
+
 HOSTNAME=$(hostname)
 DATA_DIR="/var/lib/postgresql/data"
 DEFAULT_CONFIG_PATH="$DATA_DIR/postgresql.conf"
@@ -80,7 +84,7 @@ get_container_runtime() {
 }
 
 export_cron_file() {
-  echo "Exporting cron files..."
+  dka_log "Exporting cron files..."
 
   # Bersihkan crontab root agar tidak duplikat saat restart
   > /etc/crontabs/root
@@ -102,23 +106,23 @@ export_cron_file() {
 # ==============================================================================
 if [ "$(id -u)" = '0' ]; then
   RUNTIME=$(get_container_runtime)
-  echo "🛡️ [DKA] Runtime: $RUNTIME (Root Phase)"
+  dka_log "🛡️ [DKA] Runtime: $RUNTIME (Root Phase)"
 
   if [ "$RUNTIME" = "LXC" ]; then
-    echo "📦 [LXC Mode] Dynamic Interface Activation..."
+    dka_log "📦 [LXC Mode] Dynamic Interface Activation..."
 
     # Bangunkan Loopback (Wajib untuk pg_isready)
     ip link set lo up 2>/dev/null || true
 
     # Pancing semua interface fisik agar UP (Mencegah status M-DOWN)
     for iface in $(ls /sys/class/net | grep -v lo); do
-        echo "🔗 Powering up: $iface"
+        dka_log "🔗 Powering up: $iface"
         ip link set "$iface" up 2>/dev/null || true
     done
 
     # Jalankan ifupdown-ng untuk memproses /etc/network/interfaces
     if command -v ifup >/dev/null; then
-        echo "⚙️ Executing: ifup -a"
+        dka_log "⚙️ Executing: ifup -a"
         ifup -a >/dev/null 2>&1 || true
     fi
   fi
@@ -142,13 +146,13 @@ if [ "$(id -u)" = '0' ]; then
     export_cron_file
     touch "$MAINTENANCE_LOG" 2>/dev/null || true
     chown postgres:postgres "$MAINTENANCE_LOG" 2>/dev/null || true
-    crond && echo "⏰ Cron active."
+    crond && dka_log "⏰ Cron active."
     if [ "$MAINTENANCE_ENABLE" = "true" ]; then
       echo "🛠️ Auto maintenance enabled. Schedule: ${MAINTENANCE_CRON}" >> "$MAINTENANCE_LOG"
     fi
   fi
 
-  echo "👤 Dropping privileges to postgres user..."
+  dka_log "👤 Dropping privileges to postgres user..."
   exec su-exec postgres "$0" "$@"
 fi
 
@@ -195,7 +199,8 @@ set_memory() {
   MAINTENANCE_WORK_MEM=$((MEMORY_MAX_MB / 10))"MB"   # 10% dari alokasi memori (min 64MB)
   if [ $((MEMORY_MAX_MB / 10)) -lt 64 ]; then MAINTENANCE_WORK_MEM="64MB"; fi
 
-  echo "📈 Memory detected: ${MEMORY_MAX_MB}MB. Tuning PostgreSQL for High Performance..."
+  dka_log "📈 Memory detected: ${MEMORY_MAX_MB}MB. CPU Cores: ${CPU_CORES}."
+  dka_log "⚙️ Tuning PostgreSQL: max_connections=${DB_MAX_CONNECTION}, shared_buffers=${SHARED_BUFFERS}, work_mem=${WORK_MEM}"
 
   # --- Konfigurasi Dasar ---
   sed -i "s|^\s*#*shared_buffers =.*|shared_buffers = $SHARED_BUFFERS|g" "$DEFAULT_CONFIG_PATH"
@@ -238,7 +243,7 @@ set_memory() {
     # Tambahkan baris baru jika belum ada sama sekali
     echo "shared_preload_libraries = 'pg_partman_bgw'" >> "$DEFAULT_CONFIG_PATH"
   fi
-  echo "⚙️  shared_preload_libraries: pg_partman_bgw dimuat."
+  dka_log "⚙️  shared_preload_libraries: pg_partman_bgw dimuat."
 }
 
 checkPostgreSQLIsRunning(){
@@ -246,10 +251,10 @@ checkPostgreSQLIsRunning(){
     while [ $TIMEOUT -gt 0 ]; do
         # Gunakan Unix Socket path untuk kestabilan di LXC
         if pg_isready -h /run/postgresql -U "$ROOT_USERNAME" >/dev/null 2>&1; then
-            echo "✅ PostgreSQL Server is ready."
+            dka_log "✅ PostgreSQL Server is ready."
             return 0
         fi
-        echo "⏳ Waiting for PostgreSQL ($TIMEOUT)..."
+        dka_log "⏳ Waiting for PostgreSQL ($TIMEOUT)..."
         sleep 2
         TIMEOUT=$((TIMEOUT - 2))
     done
@@ -257,7 +262,7 @@ checkPostgreSQLIsRunning(){
 }
 
 initiate_postgresql() {
-  echo "🔄 Starting Temporary PostgreSQL..."
+  dka_log "🔄 Starting Temporary PostgreSQL..."
   pg_ctl start -D "$DATA_DIR" -l "$DATA_DIR/startup.log" &
   pid="$!"
   checkPostgreSQLIsRunning
@@ -265,7 +270,7 @@ initiate_postgresql() {
 
 set_users_and_grant() {
   # Logic sederhana untuk inject user/db
-  echo "👤 Setting up database $DB_NAME for user $DB_USERNAME..."
+  dka_log "👤 Setting up database $DB_NAME for user $DB_USERNAME..."
   psql -U "$ROOT_USERNAME" -c "ALTER USER $ROOT_USERNAME WITH PASSWORD '$ROOT_PASSWORD';"
   psql -U "$ROOT_USERNAME" -c "CREATE USER $DB_USERNAME WITH PASSWORD '$DB_PASSWORD';"
   psql -U "$ROOT_USERNAME" -c "CREATE DATABASE $DB_NAME OWNER $DB_USERNAME;"
@@ -274,7 +279,7 @@ set_users_and_grant() {
 
 check_and_create_replication_user() {
   if [ "$DKA_REPLICATION_MODE" = "master" ]; then
-    echo "👥 Verifying replication user: $DKA_REPLICATION_USER"
+    dka_log "👥 Verifying replication user: $DKA_REPLICATION_USER"
     psql -U "$ROOT_USERNAME" -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DKA_REPLICATION_USER'" | grep -q 1 || \
     psql -U "$ROOT_USERNAME" -c "CREATE ROLE $DKA_REPLICATION_USER WITH REPLICATION LOGIN PASSWORD '$DKA_REPLICATION_PASSWORD';"
   fi
@@ -282,7 +287,7 @@ check_and_create_replication_user() {
 
 start_pgbouncer() {
   if [ "$DKA_PGBOUNCER_ENABLE" = "true" ]; then
-    echo "🚀 Starting PgBouncer..."
+    dka_log "🚀 Starting PgBouncer with Smart Tuning..."
 
     if [ -z "$DKA_PGBOUNCER_DEFAULT_POOL_SIZE" ]; then
       SMART_POOL_SIZE=$((CPU_CORES * 4))
@@ -337,7 +342,7 @@ EOF
 
     # Start pgbouncer in background
     pgbouncer /etc/pgbouncer/pgbouncer.ini &
-    echo "✅ PgBouncer started on port $DKA_PGBOUNCER_PORT."
+    dka_log "✅ PgBouncer started on port $DKA_PGBOUNCER_PORT."
   fi
 }
 
@@ -352,20 +357,20 @@ clear_postmaster_pid() {
 }
 
 # --- MAIN FLOW ---
-echo "--- DKA POSTGRESQL STARTING ---"
+dka_log "--- DKA POSTGRESQL STARTING ---"
 clear_postmaster_pid
 
 if [ ! -f "$DATA_DIR/DKA_POSTGRESQL_INIT" ]; then
     if [ "$DKA_REPLICATION_MODE" = "slave" ]; then
-        echo "🚀 First Run: Initiating Slave from Primary ($DKA_PEER_HOST)..."
+        dka_log "🚀 First Run: Initiating Slave from Primary ($DKA_PEER_HOST)..."
         if [ -z "$DKA_PEER_HOST" ]; then
-            echo "❌ ERROR: DKA_PEER_HOST is required for slave mode."
+            dka_log "❌ ERROR: DKA_PEER_HOST is required for slave mode."
             exit 1
         fi
         
         # Wait for primary to be ready
         until PGPASSWORD=$DKA_REPLICATION_PASSWORD psql -h "$DKA_PEER_HOST" -U "$DKA_REPLICATION_USER" -d postgres -c '\q' >/dev/null 2>&1; do
-            echo "⏳ Waiting for Primary ($DKA_PEER_HOST) to be ready..."
+            dka_log "⏳ Waiting for Primary ($DKA_PEER_HOST) to be ready..."
             sleep 3
         done
         
@@ -377,12 +382,12 @@ if [ ! -f "$DATA_DIR/DKA_POSTGRESQL_INIT" ]; then
         set_memory
         touch "$DATA_DIR/DKA_POSTGRESQL_INIT"
     else
-        echo "🚀 First Run: Initiating database..."
+        dka_log "🚀 First Run: Initiating database..."
         pg_ctl init -D "$DATA_DIR"
         initiate_postgresql
         set_users_and_grant
 
-        echo "🛑 Shutting down temporary instance..."
+        dka_log "🛑 Shutting down temporary instance..."
         pg_ctl stop -D "$DATA_DIR"
         wait "$pid"
 
@@ -391,12 +396,12 @@ if [ ! -f "$DATA_DIR/DKA_POSTGRESQL_INIT" ]; then
         touch "$DATA_DIR/DKA_POSTGRESQL_INIT"
     fi
 else
-    echo "🚀 Existing Data Detected. Updating configuration..."
+    dka_log "🚀 Existing Data Detected. Updating configuration..."
     if [ "$DKA_REPLICATION_MODE" = "slave" ]; then
         if [ ! -f "$DATA_DIR/standby.signal" ]; then
-            echo "❌ ERROR: Existing standalone/master data detected, but container is configured in 'slave' mode."
-            echo "   Running standalone/master data as a slave is not supported and will break replication."
-            echo "   Please clear the data directory ($DATA_DIR) or backup your data and re-run to allow auto-cloning from Master."
+            dka_log "❌ ERROR: Existing standalone/master data detected, but container is configured in 'slave' mode."
+            dka_log "   Running standalone/master data as a slave is not supported and will break replication."
+            dka_log "   Please clear the data directory ($DATA_DIR) or backup your data and re-run to allow auto-cloning from Master."
             exit 1
         fi
     fi
@@ -404,7 +409,7 @@ else
     set_hba
 fi
 
-echo "🚀 Running Final Postgres Engine..."
+dka_log "🚀 Running Final Postgres Engine..."
 pg_ctl start -D "$DATA_DIR" -l "$DATA_DIR/main_server.log"
 checkPostgreSQLIsRunning
 
@@ -414,7 +419,7 @@ start_pgbouncer
 
 # Graceful Shutdown Handler
 shutdown_handler() {
-  echo "🛑 Received shutdown signal! Stopping PostgreSQL and PgBouncer..."
+  dka_log "🛑 Received shutdown signal! Stopping PostgreSQL and PgBouncer..."
   if [ -f /var/run/pgbouncer/pgbouncer.pid ]; then
       kill $(cat /var/run/pgbouncer/pgbouncer.pid) || true
   fi
@@ -424,9 +429,17 @@ shutdown_handler() {
 trap 'shutdown_handler' TERM INT
 
 # Tail log agar container tetap hidup dan trap tertangkap
+tail -f "$DATA_DIR/main_server.log" | while read -r line; do
+  printf "\033[1;34m[🐘 PostgreSQL]\033[0m %s\n" "$line"
+done &
+TAIL_PID1=$!
+
 if [ "$DKA_PGBOUNCER_ENABLE" = "true" ]; then
-  tail -f "$DATA_DIR/main_server.log" /var/log/pgbouncer/pgbouncer.log &
+  tail -f /var/log/pgbouncer/pgbouncer.log | while read -r line; do
+    printf "\033[1;36m[🚀 PgBouncer]\033[0m %s\n" "$line"
+  done &
+  TAIL_PID2=$!
+  wait $TAIL_PID1 $TAIL_PID2
 else
-  tail -f "$DATA_DIR/main_server.log" &
+  wait $TAIL_PID1
 fi
-wait $!
