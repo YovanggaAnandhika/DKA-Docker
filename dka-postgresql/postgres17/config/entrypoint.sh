@@ -19,6 +19,40 @@ DB_NAME=${DKA_DB_NAME:-test}
 DB_USERNAME=${DKA_DB_USERNAME:-test}
 DB_PASSWORD=${DKA_DB_PASSWORD:-test}
 DB_MAX_CONNECTION=${DKA_DB_MAX_CONNECTION:-200}
+DKA_DB_JIT=${DKA_DB_JIT:-off}
+DKA_DB_SYNCHRONOUS_COMMIT=${DKA_DB_SYNCHRONOUS_COMMIT:-off}
+
+# Smart CPU Detection for Parallel Workers (Guaranteed No "Leak")
+get_cpu_cores() {
+  local CORES=0
+  if [ -f /sys/fs/cgroup/cpu.max ]; then
+    local CPU_MAX=$(cat /sys/fs/cgroup/cpu.max 2>/dev/null)
+    local QUOTA=$(echo "$CPU_MAX" | awk '{print $1}')
+    local PERIOD=$(echo "$CPU_MAX" | awk '{print $2}')
+    if [ "$QUOTA" != "max" ] && [ -n "$QUOTA" ] && [ -n "$PERIOD" ]; then
+      CORES=$((QUOTA / PERIOD))
+    fi
+  elif [ -f /sys/fs/cgroup/cpu/cpu.cfs_quota_us ]; then
+    local QUOTA=$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us 2>/dev/null)
+    local PERIOD=$(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us 2>/dev/null)
+    if [ "$QUOTA" != "-1" ] && [ -n "$QUOTA" ] && [ -n "$PERIOD" ] && [ "$PERIOD" -gt 0 ]; then
+      CORES=$((QUOTA / PERIOD))
+    fi
+  fi
+  
+  if [ -z "$CORES" ] || [ "$CORES" -le 0 ]; then
+    CORES=$(nproc 2>/dev/null || echo 4)
+  fi
+  echo "$CORES"
+}
+
+CPU_CORES=$(get_cpu_cores)
+DEFAULT_WORKERS=$((CPU_CORES > 2 ? CPU_CORES : 2))
+DEFAULT_WORKERS_PER_GATHER=$((DEFAULT_WORKERS / 2))
+[ "$DEFAULT_WORKERS_PER_GATHER" -eq 0 ] && DEFAULT_WORKERS_PER_GATHER=1
+
+DKA_DB_MAX_PARALLEL_WORKERS_PER_GATHER=${DKA_DB_MAX_PARALLEL_WORKERS_PER_GATHER:-$DEFAULT_WORKERS_PER_GATHER}
+DKA_DB_MAX_PARALLEL_WORKERS=${DKA_DB_MAX_PARALLEL_WORKERS:-$DEFAULT_WORKERS}
 
 # Konfigurasi Pgbouncer
 DKA_PGBOUNCER_ENABLE=${DKA_PGBOUNCER_ENABLE:-false}
@@ -145,7 +179,9 @@ set_memory() {
 
   # 1. Alokasi Dasar
   SHARED_BUFFERS=$((MEMORY_MAX / 4 / 1024 / 1024))"MB"
-  WORK_MEM=$((MEMORY_MAX / 4 / DB_MAX_CONNECTION / 1024))"kB"
+  WORK_MEM_CALC=$((MEMORY_MAX / 4 / DB_MAX_CONNECTION / 1024))
+  if [ "$WORK_MEM_CALC" -lt 4096 ]; then WORK_MEM_CALC=4096; fi
+  WORK_MEM="${WORK_MEM_CALC}kB"
 
   # 2. Perhitungan Lanjutan untuk Performa
   EFFECTIVE_CACHE_SIZE=$((MEMORY_MAX_MB * 3 / 4))"MB" # 75% dari alokasi memori
@@ -159,6 +195,10 @@ set_memory() {
   sed -i "s|^\s*#*max_connections =.*|max_connections = $DB_MAX_CONNECTION|g" "$DEFAULT_CONFIG_PATH"
   sed -i "s|^\s*#*work_mem =.*|work_mem = $WORK_MEM|g" "$DEFAULT_CONFIG_PATH"
   sed -i "s|^\s*#*listen_addresses =.*|listen_addresses = '*'|g" "$DEFAULT_CONFIG_PATH"
+  sed -i "s|^\s*#*jit =.*|jit = $DKA_DB_JIT|g" "$DEFAULT_CONFIG_PATH"
+  sed -i "s|^\s*#*max_parallel_workers_per_gather =.*|max_parallel_workers_per_gather = $DKA_DB_MAX_PARALLEL_WORKERS_PER_GATHER|g" "$DEFAULT_CONFIG_PATH"
+  sed -i "s|^\s*#*max_parallel_workers =.*|max_parallel_workers = $DKA_DB_MAX_PARALLEL_WORKERS|g" "$DEFAULT_CONFIG_PATH"
+  sed -i "s|^\s*#*synchronous_commit =.*|synchronous_commit = $DKA_DB_SYNCHRONOUS_COMMIT|g" "$DEFAULT_CONFIG_PATH"
 
   # --- Konfigurasi Replikasi ---
   if [ "$DKA_REPLICATION_MODE" = "master" ]; then
@@ -256,6 +296,9 @@ pidfile = /var/run/pgbouncer/pgbouncer.pid
 unix_socket_dir = /var/run/pgbouncer
 ignore_startup_parameters = extra_float_digits
 max_prepared_statements = 100
+reserve_pool_size = 5
+reserve_pool_timeout = 5
+server_idle_timeout = 300
 EOF
 
     # Create userlist.txt (format: "username" "md5password")
