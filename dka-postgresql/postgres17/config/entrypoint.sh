@@ -272,7 +272,6 @@ EOF
 
     # Start pgbouncer in background
     pgbouncer /etc/pgbouncer/pgbouncer.ini &
-    echo $! > /var/run/pgbouncer/pgbouncer.pid
     echo "✅ PgBouncer started on port $DKA_PGBOUNCER_PORT."
   fi
 }
