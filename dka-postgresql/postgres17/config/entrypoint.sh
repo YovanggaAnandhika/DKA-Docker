@@ -90,7 +90,7 @@ if [ "$(id -u)" = '0' ]; then
   fi
 
   # Pastikan struktur folder dan izin akses tepat sebelum drop privilege
-  mkdir -p /var/run/postgresql /run/postgresql "$DATA_DIR" /var/log/postgresql
+  mkdir -p /var/run/postgresql /run/postgresql "$DATA_DIR" /var/log/postgresql /etc/pgbouncer /var/run/pgbouncer /var/log/pgbouncer
 
   # Optimasi chown: Hindari chown -R secara rekursif pada DATA_DIR jika sudah dimiliki oleh postgres (UID 70)
   # untuk mencegah startup delay/timeout pada volume basis data yang sangat besar.
@@ -101,7 +101,7 @@ if [ "$(id -u)" = '0' ]; then
   fi
 
   # Direktori sistem lainnya tetap chown -R karena ukurannya sangat kecil
-  chown -R postgres:postgres /var/run/postgresql /run/postgresql /var/log/postgresql /etc/cron.d
+  chown -R postgres:postgres /var/run/postgresql /run/postgresql /var/log/postgresql /etc/cron.d /etc/pgbouncer /var/run/pgbouncer /var/log/pgbouncer
 
   # --- CRON SETUP & START IN ROOT PHASE ---
   if [ "$ENABLED_CRON" = "true" ] || [ "$MAINTENANCE_ENABLE" = "true" ]; then
@@ -263,7 +263,7 @@ EOF
     echo "\"$ROOT_USERNAME\" \"$ROOT_MD5\"" > /etc/pgbouncer/userlist.txt
     echo "\"$DB_USERNAME\" \"$DB_MD5\"" >> /etc/pgbouncer/userlist.txt
 
-    chown -R postgres:postgres /etc/pgbouncer
+    # chown -R postgres:postgres /etc/pgbouncer
     chmod 600 /etc/pgbouncer/userlist.txt
 
     # Pastikan file log ada sebelum ditail
@@ -271,7 +271,8 @@ EOF
     chown postgres:postgres /var/log/pgbouncer/pgbouncer.log
 
     # Start pgbouncer in background
-    pgbouncer -d /etc/pgbouncer/pgbouncer.ini -u postgres
+    pgbouncer /etc/pgbouncer/pgbouncer.ini &
+    echo $! > /var/run/pgbouncer/pgbouncer.pid
     echo "✅ PgBouncer started on port $DKA_PGBOUNCER_PORT."
   fi
 }
