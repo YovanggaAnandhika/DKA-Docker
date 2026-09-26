@@ -1,14 +1,12 @@
-/var/lib/postgresql/*.err {
+/var/lib/postgresql/data/*.err {
     daily
     rotate 7
     compress
     delaycompress
     missingok
     notifempty
-    create 640 mysql mysql
-    postrotate
-        mysqladmin flush-logs
-    endscript
+    create 640 postgres postgres
+    copytruncate
     compresscmd /bin/tar
     compressext .tar.gz
     compressoptions -czf
@@ -21,10 +19,22 @@
     delaycompress
     missingok
     notifempty
-    create 640 mysql mysql
-    postrotate
-        mysqladmin flush-logs
-    endscript
+    create 640 postgres postgres
+    copytruncate
+    compresscmd /bin/tar
+    compressext .tar.gz
+    compressoptions -czf
+}
+
+/var/log/pgbouncer/*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 640 postgres postgres
+    copytruncate
     compresscmd /bin/tar
     compressext .tar.gz
     compressoptions -czf

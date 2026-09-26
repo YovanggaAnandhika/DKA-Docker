@@ -1,5 +1,5 @@
 REPOSITORY_NAME=yovanggaanandhika/postgresql
-TAG_NAME=17.1
+TAG_NAME=17.2
 
 default:
 	docker buildx build -t ${REPOSITORY_NAME}:${TAG_NAME} --load .

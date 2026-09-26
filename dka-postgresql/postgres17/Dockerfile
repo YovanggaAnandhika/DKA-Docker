@@ -25,7 +25,7 @@ LABEL org.opencontainers.image.vendor="DKA Research Center Organization"
 # - pg_partman: Partman extension build/install dari source.
 RUN apk add --no-cache \
         cgroup-tools tzdata htop nano dcron logrotate bash rsync ifupdown-ng su-exec \
-        postgresql postgis postgresql-contrib postgresql-client bc py3-pip py3-setuptools py3-wheel && \
+        postgresql postgis postgresql-contrib postgresql-client pgbouncer bc py3-pip py3-setuptools py3-wheel && \
     pip install --no-cache-dir --break-system-packages awscli && \
     apk add --no-cache --virtual .build-deps git build-base postgresql-dev perl && \
     git clone --depth 1 https://github.com/keithf4/pg_partman.git /tmp/pg_partman && \
@@ -45,7 +45,10 @@ COPY config/logrotate.d /etc/logrotate.d/
 RUN mkdir -p /var/log/postgresql && chown postgres:postgres /var/log/postgresql &&  \
     mkdir /backup && chown postgres:postgres /backup && chmod -R 755 /backup && \
     mkdir -p /var/lib/postgresql/data && chown -R postgres:postgres /var/lib/postgresql && \
-    mkdir -p /run/postgresql && chown postgres:postgres /run/postgresql
+    mkdir -p /run/postgresql && chown postgres:postgres /run/postgresql && \
+    mkdir -p /etc/pgbouncer && chown postgres:postgres /etc/pgbouncer && \
+    mkdir -p /var/log/pgbouncer && chown postgres:postgres /var/log/pgbouncer && \
+    mkdir -p /var/run/pgbouncer && chown postgres:postgres /var/run/pgbouncer
 
 # Menyalin naskah dan konfigurasi tugas berkala (Crontab job) dan memberinya akses pelaksana
 COPY config/cron.d /usr/cron.d/

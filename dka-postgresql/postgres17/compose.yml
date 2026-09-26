@@ -12,6 +12,10 @@ services:
         published: 5432
         protocol: tcp
         host_ip: 0.0.0.0
+      # - target: 6432
+      #   published: 6432
+      #   protocol: tcp
+      #   host_ip: 0.0.0.0
     environment:
       # ============================================================
       # Replication Settings (Master)
@@ -29,6 +33,15 @@ services:
       DKA_DB_USERNAME: test
       DKA_DB_PASSWORD: test
       DKA_DB_MAX_CONNECTION: 200
+
+      # ============================================================
+      # PgBouncer Settings (Optional - Connection Pooler)
+      # ============================================================
+      # DKA_PGBOUNCER_ENABLE: "true"
+      # DKA_PGBOUNCER_PORT: 6432
+      # DKA_PGBOUNCER_POOL_MODE: transaction
+      # DKA_PGBOUNCER_MAX_CLIENT_CONN: 500
+      # DKA_PGBOUNCER_DEFAULT_POOL_SIZE: 20
 
       # ============================================================
       # Cron & Backup Settings

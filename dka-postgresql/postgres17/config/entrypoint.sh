@@ -20,6 +20,13 @@ DB_USERNAME=${DKA_DB_USERNAME:-test}
 DB_PASSWORD=${DKA_DB_PASSWORD:-test}
 DB_MAX_CONNECTION=${DKA_DB_MAX_CONNECTION:-200}
 
+# Konfigurasi Pgbouncer
+DKA_PGBOUNCER_ENABLE=${DKA_PGBOUNCER_ENABLE:-false}
+DKA_PGBOUNCER_PORT=${DKA_PGBOUNCER_PORT:-6432}
+DKA_PGBOUNCER_POOL_MODE=${DKA_PGBOUNCER_POOL_MODE:-transaction}
+DKA_PGBOUNCER_MAX_CLIENT_CONN=${DKA_PGBOUNCER_MAX_CLIENT_CONN:-500}
+DKA_PGBOUNCER_DEFAULT_POOL_SIZE=${DKA_PGBOUNCER_DEFAULT_POOL_SIZE:-20}
+
 # Konfigurasi Replikasi Master-Slave
 DKA_REPLICATION_MODE=${DKA_REPLICATION_MODE:-none}
 DKA_PEER_HOST=${DKA_PEER_HOST:-}
@@ -226,6 +233,49 @@ check_and_create_replication_user() {
   fi
 }
 
+start_pgbouncer() {
+  if [ "$DKA_PGBOUNCER_ENABLE" = "true" ]; then
+    echo "🚀 Starting PgBouncer..."
+
+    # Setup pgbouncer.ini
+    cat <<EOF > /etc/pgbouncer/pgbouncer.ini
+[databases]
+* = host=127.0.0.1 port=5432
+
+[pgbouncer]
+listen_addr = *
+listen_port = $DKA_PGBOUNCER_PORT
+auth_type = md5
+auth_file = /etc/pgbouncer/userlist.txt
+pool_mode = $DKA_PGBOUNCER_POOL_MODE
+max_client_conn = $DKA_PGBOUNCER_MAX_CLIENT_CONN
+default_pool_size = $DKA_PGBOUNCER_DEFAULT_POOL_SIZE
+admin_users = $ROOT_USERNAME
+logfile = /var/log/pgbouncer/pgbouncer.log
+pidfile = /var/run/pgbouncer/pgbouncer.pid
+unix_socket_dir = /var/run/pgbouncer
+EOF
+
+    # Create userlist.txt (format: "username" "md5password")
+    ROOT_MD5="md5$(echo -n "${ROOT_PASSWORD}${ROOT_USERNAME}" | md5sum | awk '{print $1}')"
+    DB_MD5="md5$(echo -n "${DB_PASSWORD}${DB_USERNAME}" | md5sum | awk '{print $1}')"
+
+    echo "\"$ROOT_USERNAME\" \"$ROOT_MD5\"" > /etc/pgbouncer/userlist.txt
+    echo "\"$DB_USERNAME\" \"$DB_MD5\"" >> /etc/pgbouncer/userlist.txt
+
+    chown -R postgres:postgres /etc/pgbouncer
+    chmod 600 /etc/pgbouncer/userlist.txt
+
+    # Pastikan file log ada sebelum ditail
+    touch /var/log/pgbouncer/pgbouncer.log
+    chown postgres:postgres /var/log/pgbouncer/pgbouncer.log
+
+    # Start pgbouncer in background
+    pgbouncer -d /etc/pgbouncer/pgbouncer.ini -u postgres
+    echo "✅ PgBouncer started on port $DKA_PGBOUNCER_PORT."
+  fi
+}
+
 clear_postmaster_pid() {
   echo "🧹 Cleaning stale files..."
   rm -f "$DATA_DIR/postmaster.pid"
@@ -292,14 +342,23 @@ checkPostgreSQLIsRunning
 
 check_and_create_replication_user
 
+start_pgbouncer
+
 # Graceful Shutdown Handler
 shutdown_handler() {
-  echo "🛑 Received shutdown signal! Stopping PostgreSQL..."
+  echo "🛑 Received shutdown signal! Stopping PostgreSQL and PgBouncer..."
+  if [ -f /var/run/pgbouncer/pgbouncer.pid ]; then
+      kill $(cat /var/run/pgbouncer/pgbouncer.pid) || true
+  fi
   pg_ctl stop -D "$DATA_DIR" -m fast
   exit 0
 }
 trap 'shutdown_handler' TERM INT
 
 # Tail log agar container tetap hidup dan trap tertangkap
-tail -f "$DATA_DIR/main_server.log" &
+if [ "$DKA_PGBOUNCER_ENABLE" = "true" ]; then
+  tail -f "$DATA_DIR/main_server.log" /var/log/pgbouncer/pgbouncer.log &
+else
+  tail -f "$DATA_DIR/main_server.log" &
+fi
 wait $!
