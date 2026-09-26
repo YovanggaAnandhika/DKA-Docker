@@ -255,6 +255,7 @@ logfile = /var/log/pgbouncer/pgbouncer.log
 pidfile = /var/run/pgbouncer/pgbouncer.pid
 unix_socket_dir = /var/run/pgbouncer
 ignore_startup_parameters = extra_float_digits
+max_prepared_statements = 100
 EOF
 
     # Create userlist.txt (format: "username" "md5password")
