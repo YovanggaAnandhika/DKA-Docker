@@ -44,6 +44,11 @@ services:
         reservations:
           memory: 250M
           cpus: '0.8'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - default
 
